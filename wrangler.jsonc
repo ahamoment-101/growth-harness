@@ -1,0 +1,95 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "programmatic-seo",
+  "main": "./worker/index.ts",
+  "compatibility_date": "2026-08-18",
+  "compatibility_flags": ["nodejs_compat"],
+  // Optional invocation limits must match your Cloudflare plan and the Runtime execution handoff policy.
+  // Review current platform limits before configuring limits.subrequests.
+  "assets": {
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true
+  },
+  // Deployment identity: the site room drops read models built by an older deploy.
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "programmatic-seo",
+      // Local-only placeholder: Miniflare requires a non-empty ID. Replace with your D1 ID before deployment.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [{ "binding": "RESEARCH_BUCKET", "bucket_name": "programmatic-seo-research" }],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "AGENT_RUNTIME_PROBE",
+        "class_name": "AgentRuntimeProbe"
+      },
+      {
+        "name": "AGENT_SHELL",
+        "class_name": "AgentShell"
+      },
+      {
+        "name": "SITE_ROOM",
+        "class_name": "SiteRoom"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1-agent-runtime-probe",
+      "new_sqlite_classes": ["AgentRuntimeProbe"]
+    },
+    {
+      "tag": "v2-agent-shell",
+      "new_sqlite_classes": ["AgentShell"]
+    },
+    {
+      "tag": "v3-site-room",
+      "new_sqlite_classes": ["SiteRoom"]
+    }
+  ],
+  "workflows": [
+    {
+      "name": "publish-article",
+      "binding": "PUBLISH_WORKFLOW",
+      "class_name": "PublishWorkflow"
+    },
+    {
+      "name": "localize-article",
+      "binding": "LOCALIZE_WORKFLOW",
+      "class_name": "LocalizeWorkflow"
+    },
+    {
+      "name": "agent-runtime-probe",
+      "binding": "AGENT_RUNTIME_PROBE_WORKFLOW",
+      "class_name": "AgentRuntimeProbeWorkflow"
+    },
+    {
+      "name": "agent-runtime",
+      "binding": "AGENT_WORKFLOW",
+      "class_name": "AgentRuntimeWorkflow"
+    }
+  ],
+  "triggers": {
+    "crons": ["0 * * * *", "* * * * *"]
+  },
+  "vars": {
+    "MODEL_REGISTRY": "{\"version\":2,\"defaultProfile\":\"openrouter/default\",\"agentProfiles\":{},\"connections\":{\"openrouter\":{\"protocol\":\"openai-chat\",\"baseUrl\":\"https://openrouter.ai/api/v1\",\"apiKeyEnv\":\"OPENROUTER_API_KEY\",\"headers\":{\"HTTP-Referer\":\"https://github.com/ahamoment-101/growth-harness\",\"X-OpenRouter-Title\":\"GrowthHarness\"}},\"openai\":{\"protocol\":\"openai-responses\",\"baseUrl\":\"https://api.openai.com/v1\",\"apiKeyEnv\":\"OPENAI_API_KEY\"},\"anthropic\":{\"protocol\":\"anthropic-messages\",\"baseUrl\":\"https://api.anthropic.com/v1\",\"apiKeyEnv\":\"ANTHROPIC_API_KEY\"}},\"profiles\":{\"openrouter/default\":{\"supportedParameters\":[\"tools\",\"tool_choice\",\"max_tokens\",\"response_format\",\"reasoning\",\"reasoning_effort\"],\"reasoningSupported\":true,\"reasoningRequired\":false,\"connection\":\"openrouter\",\"model\":\"openai/gpt-5.6-terra\",\"contextWindow\":1050000,\"maxOutputTokens\":128000,\"sourceUrl\":\"https://openrouter.ai/api/v1/models\",\"compatibility\":{\"thinkingFormat\":\"openrouter\",\"supportsReasoningEffort\":true}},\"openai/default\":{\"supportedParameters\":[\"tools\",\"tool_choice\",\"max_output_tokens\",\"text.format\",\"reasoning\"],\"reasoningSupported\":true,\"reasoningRequired\":false,\"connection\":\"openai\",\"model\":\"gpt-5.6-terra\",\"contextWindow\":1050000,\"maxOutputTokens\":128000,\"sourceUrl\":\"https://developers.openai.com/api/docs/models/gpt-5.6-terra\"},\"anthropic/default\":{\"supportedParameters\":[\"tools\",\"tool_choice\",\"max_tokens\",\"response_format\"],\"reasoningSupported\":true,\"reasoningRequired\":false,\"connection\":\"anthropic\",\"model\":\"claude-sonnet-5-5\",\"contextWindow\":1000000,\"maxOutputTokens\":128000,\"sourceUrl\":\"https://platform.claude.com/docs/en/models/overview\",\"compatibility\":{\"forceAdaptiveThinking\":true}}}}",
+    "AGENT_RUNTIME_PROBE_ENABLED": "false",
+    "DEV_TOOLS_ENABLED": "false",
+    "CLOUDFLARE_WORKER_NAME": "programmatic-seo",
+    "AGENT_RUNTIME_ENABLED": "true",
+    "AUTH_LOGIN_METHODS": "password",
+    "AUTH_ALLOWED_GOOGLE_EMAIL": "",
+    "AUTH_GOOGLE_CLIENT_ID": "",
+    "GOOGLE_CLIENT_ID": "",
+    "DATAFORSEO_LOGIN": "",
+    "CLOUDFLARE_ACCOUNT_ID": "",
+    "CNAME_TARGET": ""
+  }
+}

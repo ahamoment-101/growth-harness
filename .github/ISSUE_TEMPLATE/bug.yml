@@ -1,0 +1,17 @@
+name: Bug report
+description: Report a reproducible problem without secrets or customer data.
+title: "[Bug]: "
+body:
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction and expected result
+      description: Include revision, Node version, local/Cloudflare setup and exact steps. Redact credentials and customer content.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Actual result and sanitized evidence
+    validations:
+      required: true

@@ -1,0 +1,74 @@
+import { editorialFixture } from './content-editorial.test-fixture';
+import { editArticleInternalLinksInput, editArticleInternalLinksTool } from './content-link-editing';
+import { parentPublishedArticlesTool, readContentArticleTool } from './content-link-reading';
+import { saveSlot } from './parameter-slots';
+import { beginTaskDecision, setTaskAction } from './task-store';
+const body = '## Guide\n\nUse a checklist before sending your reply.\n\nKeep your message clear.';
+const version = (content = body, locale = 'en') => ({ locale, slug: `guide-${locale}`, title: 'Reply guide', excerpt: 'A useful checklist', content });
+export async function contentLinkFixture() {
+  const f = await editorialFixture();
+  f.sqlite.exec(`
+    alter table sites add column workspace_id text default 'w';
+    alter table sites add column domain text default 'blog.example.com';
+    alter table sites add column domain_status text default 'live';
+    alter table sites add column source_locale text default 'en';
+    alter table sites add column translate_locales_json text default '[]';
+    alter table sites add column locale_policy_json text default '';
+    alter table sites add column product_origin text default 'https://example.com';
+    alter table sites add column hub_path text default '/product';
+    alter table sites add column hub_urls_json text default '{}';
+    alter table content_production_groups add column status text default 'reviewing';
+    alter table content_production_groups add column total_items integer default 1;
+    alter table content_production_groups add column decision_group_id text default 'decision';
+    alter table content_production_groups add column ready_items integer default 0;
+    alter table content_production_groups add column failed_items integer default 0;
+    alter table content_production_groups add column review_round integer default 0;
+    alter table content_production_groups add column review_json text default '{}';
+    alter table content_production_groups add column error text default '';
+    alter table content_production_groups add column updated_at text default '';
+    alter table jobs add column site_id text default 's';
+    alter table jobs add column topic_id text default 'topic';
+    alter table jobs add column decision_item_id text default 'item';
+    alter table jobs add column source_locale text default 'en';
+    alter table jobs add column translate_locales_json text default '[]';
+    alter table jobs add column plan_json text default '{}';
+    alter table jobs add column status text default 'drafting';
+    alter table jobs add column child_run_id text default 'author';
+    alter table jobs add column current_artifact_id text default '';
+    alter table jobs add column versions_json text default '[]';
+    alter table jobs add column qa_report text default '{}';
+    alter table jobs add column error text default '';
+    alter table jobs add column review_note text default '';
+    alter table jobs add column content_updated_at text default '';
+    alter table jobs add column updated_at text default '';
+    alter table jobs add column created_at text default '2026-09-01';
+    alter table jobs add column published_at text default '';
+    create table content_artifacts(id text primary key,group_id text,job_id text,decision_item_id text,child_run_id text,submission_operation_id text unique,attempt integer,status text,versions_json text,seo_contract_json text,qa_report_json text,parent_review_json text,supersedes_artifact_id text,created_at text,updated_at text,unique(job_id,attempt));
+    create table content_review_interactions(id text primary key,idempotency_key text unique,group_id text,job_id text,artifact_id text,parent_run_id text,child_run_id text,kind text,actor_type text,actor_id text,summary text,payload_json text,created_at text);
+    create table topics(id text,title_hint text,category text,primary_keyword text,topic_key text);
+    insert into topics values('topic','Reply guide','Guide','email reply','reply');
+    create table topic_decision_results(id text,site_id text,group_goal text,group_hypothesis text,rationale text);
+    insert into topic_decision_results values('decision','s','Helpful replies','Reader task','Distinct pages');
+    create table topic_decision_items(id text,result_id text,locale text,market text,search_intent text,group_role text,title_direction text,primary_keyword text,strategy_version_id text,rationale text,hypothesis text,evidence_json text,relationship_to_existing text,risk text,sort_order integer);
+    insert into topic_decision_items values('item','decision','en','','Reply clearly','guide','Reply guide','email reply','','Helpful','Useful','[]','Complement checklist','',0);
+    create table seo_strategy_versions(id text);
+    create table business_module_versions(site_id text,module_key text,version integer);
+  `);
+  const p = await f.task('parent', 'content_production');
+  f.sqlite.prepare(`insert into content_artifacts values('draft','g','j','item','author','author-submit',1,'candidate',?,'{}','{"ok":true,"issues":[]}','{}','','now','now')`).run(JSON.stringify([version()]));
+  for (let i = 0; i < 7; i++) f.sqlite.prepare("insert into jobs(id,production_group_id,status,versions_json,published_at) values(?,'','published',?,'2026-09-01')")
+    .run(i === 0 ? 'old' : `old-${i}`, JSON.stringify([{ ...version('Detailed checklist '.repeat(900)), title: 'Checklist', slug: `checklist-${i}` }]));
+  const observation_ref = await saveSlot(p.env.DB, p.task, 'content_group', { group: { id: 'g' }, items: [{ job_id: 'j', artifact_id: 'draft' }] });
+  const read = readContentArticleTool(p.env, 'g');
+  const observed = await read.execute!(read.inputSchema.parse({ observation_ref, job_id: 'j', judgment_summary: 'Read draft' }), p.context) as { candidate_ref: string; content: string };
+  const search = parentPublishedArticlesTool(p.env, 'g');
+  const found = await search.execute!(search.inputSchema.parse({ query: 'checklist', limit: 1, judgment_summary: 'Find detail' }), p.context) as { articles: Array<{ article_ref: string }>; next_cursor: string };
+  const targetRead = await search.execute!(search.inputSchema.parse({ article_ref: found.articles[0].article_ref, judgment_summary: 'Read target' }), p.context) as { target_ref: string; link_href: string; content: string; next_offset: number };
+  const op = await beginTaskDecision(p.env.DB, p.task, {});
+  const args = editArticleInternalLinksInput.parse({ candidate_ref: observed.candidate_ref,
+    edits: [{ locale: 'en', original_text: 'Use a checklist before sending your reply.', replacement_text: 'Use a [checklist](article:old) before sending your reply.', target_refs: [targetRead.target_ref], reason: 'Detailed steps help here' }],
+    judgment_summary: 'One relevant link is enough' });
+  await setTaskAction(p.env.DB, p.task, op, { name: 'edit_article_internal_links', input: args });
+  const context = { ...p.context, idempotencyKey: op.id };
+  return { ...f, p, read, search, observed, found, targetRead, op, args, context, edit: editArticleInternalLinksTool(p.env, 'g') };
+}

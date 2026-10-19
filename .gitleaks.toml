@@ -1,0 +1,13 @@
+# Keep upstream rules. Exceptions match only known synthetic/SQL text, never a file.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Provider-shaped redaction fixture; intentionally not a credential"
+regexTarget = "secret"
+regexes = ['''^sk-or-v1-abcdefghijklmnop$''']
+
+[[allowlists]]
+description = "SQL column assignment, not a credential"
+regexTarget = "match"
+regexes = ['''lease_until=excluded\.lease_until''']

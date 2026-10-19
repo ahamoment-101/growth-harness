@@ -1,0 +1,9 @@
+name: Feature request
+description: Explain the user problem and useful result.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem, intended outcome and current workaround
+    validations:
+      required: true

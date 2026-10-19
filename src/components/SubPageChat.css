@@ -1,0 +1,244 @@
+/* ── Overall panel container ───────────────────────────────────────── */
+
+.spc-panel {
+  width: 30%;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 0.5px solid rgba(0, 0, 0, 0.08);
+  background: #fff;
+  overflow: hidden;
+}
+
+/* ── Header ────────────────────────────────────────────────── */
+
+.spc-header {
+  padding: 16px 18px 12px;
+  border-bottom: 0.5px solid rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
+  text-align: left;
+}
+
+.spc-header-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: #a09d96;
+  letter-spacing: 0.3px;
+  margin-bottom: 2px;
+}
+
+.spc-header-sub {
+  font-size: 12px;
+  color: #6b6960;
+  font-weight: 300;
+}
+
+/* ── Message list ─────────────────────────────────────────────── */
+
+.spc-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Message bubble base */
+.spc-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* User message: right-aligned */
+.spc-msg-user { align-items: flex-end; }
+
+/* AI message: left-aligned */
+.spc-msg-ai { align-items: flex-start; }
+
+.spc-msg-bubble {
+  max-width: 85%;
+  padding: 9px 13px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.55;
+  font-weight: 300;
+  text-align: left;
+}
+
+/* Markdown element base styles */
+.spc-msg-bubble p {
+  margin: 0 0 6px;
+}
+.spc-msg-bubble p:last-child { margin-bottom: 0; }
+.spc-msg-bubble ul, .spc-msg-bubble ol { margin: 4px 0 4px 16px; padding: 0; }
+.spc-msg-bubble li { margin-bottom: 2px; }
+.spc-msg-bubble code { font-size: 12px; background: rgba(0,0,0,0.06); border-radius: 3px; padding: 1px 4px; }
+.spc-msg-bubble pre { background: rgba(0,0,0,0.06); border-radius: 6px; padding: 8px 10px; overflow-x: auto; margin: 6px 0; }
+.spc-msg-bubble pre code { background: none; padding: 0; }
+.spc-msg-bubble strong { font-weight: 600; }
+.spc-msg-bubble h1, .spc-msg-bubble h2, .spc-msg-bubble h3 { font-size: 13px; font-weight: 600; margin: 6px 0 2px; }
+
+.spc-msg-bubble .markdown-document {
+  padding: 0;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+}
+.spc-msg-bubble .markdown-document p { margin: 0 0 6px; font-size: inherit; }
+.spc-msg-bubble .markdown-document p:last-child { margin-bottom: 0; }
+.spc-msg-bubble .markdown-document h1,
+.spc-msg-bubble .markdown-document h2,
+.spc-msg-bubble .markdown-document h3,
+.spc-msg-bubble .markdown-document h4 {
+  font-size: 13px;
+  margin: 6px 0 2px;
+}
+
+/* User bubble: dark background with white text, sharp corner at bottom-right */
+.spc-msg-user .spc-msg-bubble {
+  background: #1a1917;
+  color: #fff;
+  border-bottom-right-radius: 3px;
+}
+
+/* AI bubble: light gray background with dark text, sharp corner at bottom-left */
+.spc-msg-ai .spc-msg-bubble {
+  background: #f2f0ec;
+  color: #1a1917;
+  border-bottom-left-radius: 3px;
+}
+
+.spc-msg-time {
+  font-size: 10px;
+  color: #a09d96;
+  padding: 0 4px;
+}
+
+/* ── AI thinking: three-dot bouncing animation ─────────────────────────────── */
+
+.spc-thinking {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 2px;
+}
+
+.spc-thinking-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #a09d96;
+  animation: spc-pulse 1.2s ease-in-out infinite;
+}
+.spc-thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+.spc-thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes spc-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50%       { opacity: 1;   transform: scale(1);   }
+}
+
+/* ── Input area ─────────────────────────────────────────────── */
+
+.spc-input-wrap {
+  padding: 12px 14px;
+  border-top: 0.5px solid rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
+}
+
+.spc-input-box {
+  background: #f2f0ec;
+  border: 0.5px solid rgba(0, 0, 0, 0.13);
+  border-radius: 14px;
+  padding: 10px 14px;
+  transition: border-color 0.12s;
+}
+
+.spc-input-box:focus-within {
+  border-color: rgba(0, 0, 0, 0.22);
+  background: #fff;
+}
+
+/* Quick action chips */
+.spc-input-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.spc-suggest {
+  font-size: 11px;
+  color: #a09d96;
+  background: #fff;
+  border: 0.5px solid rgba(0, 0, 0, 0.13);
+  border-radius: 20px;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: all 0.12s;
+  user-select: none;
+  white-space: nowrap;
+}
+.spc-suggest:hover { border-color: rgba(0, 0, 0, 0.22); color: #1a1917; }
+
+/* Multiline textarea */
+.spc-textarea {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 13px;
+  font-family: inherit;
+  color: #1a1917;
+  resize: none;
+  line-height: 1.5;
+  min-height: 36px;
+  max-height: 120px;
+}
+.spc-textarea::placeholder { color: #a09d96; }
+
+/* Bottom of input box: hint text + send button */
+.spc-input-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.spc-hint { font-size: 11px; color: #a09d96; }
+
+/* Send button: 32×32 rounded square */
+.spc-send {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  aspect-ratio: 1 / 1;
+  border-radius: 8px;
+  background: #1a1917;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity 0.12s;
+  flex-shrink: 0;
+}
+.spc-send:hover { opacity: 0.8; }
+.spc-send svg { width: 16px; min-width: 16px; height: 16px; flex-shrink: 0; }
+
+/* Stop button state: while AI is replying, transparent background + outline */
+.spc-send-stop {
+  background: transparent !important;
+  border: 1.5px solid var(--border-light, rgba(0, 0, 0, 0.13)) !important;
+  box-shadow: none !important;
+  border-radius: 8px !important;
+  width: 32px !important;
+  height: 32px !important;
+  padding: 0 !important;
+  cursor: pointer !important;
+}

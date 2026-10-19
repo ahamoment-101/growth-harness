@@ -1,0 +1,42 @@
+# secrets
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.env
+.env.*
+!.env.example
+*.pem
+
+# dependencies
+node_modules/
+
+# wrangler / cloudflare
+.wrangler/
+.dev.vars.local
+wrangler.toml.bak
+
+# build
+dist/
+.output/
+.next/
+node_modules/.tmp/
+
+# os / editor
+.DS_Store
+*.log
+.vscode/
+.idea/
+
+# Local installation resource maps (may retain personal deployment IDs)
+wrangler.*.local.jsonc
+
+# Local planning and design references
+.zcode/
+design/
+
+# Private experiments and local editor launchers
+prototypes/
+hitl-lab/
+.claude/
+docs/internal/
+docs/internal-archive/

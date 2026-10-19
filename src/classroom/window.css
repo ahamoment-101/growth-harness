@@ -1,0 +1,65 @@
+.classroom-workspace, .classroom-background { height: 100%; width: 100%; overflow: hidden; }
+.classroom-background { position: relative; isolation: isolate; z-index: 0; }
+.classroom-window-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  padding: clamp(16px, 2.5vw, 40px);
+  background: rgba(29, 35, 58, .18);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  animation: room-overlay-in .2s ease-out;
+}
+.classroom-window {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .8);
+  border-radius: 20px;
+  background: rgba(242, 244, 250, .82);
+  box-shadow: 0 32px 90px rgba(25, 32, 65, .24), 0 2px 8px rgba(25, 32, 65, .08), inset 0 1px 0 #fff;
+  backdrop-filter: blur(28px) saturate(130%);
+  -webkit-backdrop-filter: blur(28px) saturate(130%);
+  animation: room-window-in .24s cubic-bezier(.2, .8, .2, 1);
+}
+.classroom-window-bar { display: flex; align-items: center; gap: 10px; height: 48px; flex: none; padding: 0 12px 0 20px; border-bottom: 1px solid rgba(90, 100, 125, .12); color: #42495e; user-select: none; }
+.classroom-window-bar strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.classroom-window-mark { color: #7b83a7; font-size: 20px; }
+.classroom-window-caption { color: #858ba0; font-size: 12px; white-space: nowrap; }
+.classroom-window-close { margin-left: auto; flex: none; border: 0; width: 32px; height: 32px; border-radius: 9px; background: rgba(255,255,255,.5); color: #646b80; font-size: 24px; cursor: pointer; }
+.classroom-window-close:hover { background: #f9e1e3; color: #ab3946; }
+.classroom-window-close:focus-visible { outline: 2px solid #6876ce; outline-offset: 2px; }
+.classroom-window-content { flex: 1; min-height: 0; position: relative; overflow: hidden; transform: translateZ(0); }
+.classroom-window .app { background: transparent; --sidebar-w: 208px; }
+.classroom-window .sidebar { background: transparent; }
+.classroom-window .sheet { margin: 0; border-radius: 12px 0 0; background: rgba(255,255,255,.92); box-shadow: none; border: 0; }
+.classroom-window .sheet-head { min-height: 56px; }
+.classroom-window .side-nav > .side-item:first-child { display: none; }
+@keyframes room-overlay-in { from { opacity: 0; } }
+@keyframes room-window-in { from { opacity: 0; transform: translateY(10px) scale(.985); } }
+@media (max-width: 700px) {
+  .classroom-window-layer { padding: 0; }
+  .classroom-window { border: 0; border-radius: 0; }
+  .classroom-window-bar { padding-top: env(safe-area-inset-top); height: calc(48px + env(safe-area-inset-top)); }
+  .classroom-window .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .classroom-window .sidebar { flex-direction: row; align-items: center; padding: 4px 8px; gap: 8px; min-width: 0; }
+  .classroom-window .side-top, .classroom-window .side-group { display: none; }
+  .classroom-window .side-nav { display: flex; flex-direction: row; align-items: center; gap: 4px; overflow-x: auto; min-width: 0; }
+  .classroom-window .side-nav > * { flex: none; }
+  .classroom-window .side-folder, .classroom-window .side-children { display: flex; align-items: center; }
+  .classroom-window .side-children { padding: 0; }
+  .classroom-window .side-foot { margin: 0; padding: 0; flex: none; }
+  .classroom-window .settings-menu { top: calc(100% + 8px); bottom: auto; left: auto; right: 0; }
+  .classroom-window .sheet { border-radius: 0; min-width: 0; }
+  .classroom-window .sheet-head { padding: 10px 14px; height: auto; flex-wrap: wrap; }
+  .classroom-window .tabs { overflow-x: auto; }
+  .classroom-window-caption { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .classroom-window-layer, .classroom-window { animation: none; }
+}
+
+.classroom-window-layer.closing { opacity: 0; transition: opacity .16s ease; pointer-events: none; }
+.classroom-window-layer.closing .classroom-window { transform: translateY(6px) scale(.99); transition: transform .16s ease; }
+@media (prefers-reduced-motion: reduce) { .classroom-window-layer.closing, .classroom-window-layer.closing .classroom-window { transition: none; transform: none; } }

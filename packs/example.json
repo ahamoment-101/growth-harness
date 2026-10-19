@@ -1,0 +1,16 @@
+{
+  "topics": [
+    {
+      "topic_key": "example-organize-help-docs",
+      "title_hint": "Example: How to organize help documentation",
+      "category": "METHOD",
+      "primary_keyword": "organize help documentation"
+    },
+    {
+      "topic_key": "example-review-help-docs",
+      "title_hint": "Example: How to review a help article",
+      "category": "METHOD",
+      "primary_keyword": "review help documentation"
+    }
+  ]
+}

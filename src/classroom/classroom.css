@@ -1,0 +1,203 @@
+/* Home classroom. Everything is scoped under .classroom so this room never restyles the
+   workbench; the colour tokens are the prototype's and live on the room, not :root.
+   The console locks body scrolling, so the room scrolls itself. */
+
+.classroom {
+  --surface: #FFFFFF;
+  --hover: #F2F2F0;
+  --line: #E7E6E3;
+  --line-strong: #D5D4D0;
+  --text: #1B1B1F;
+  --text-2: #6B6B73;
+  --text-3: #A0A0A8;
+  --accent: #5E6AD2;
+  --accent-ink: #4550B8;
+  --ok: #1F9D55;
+  --bad: #D93F45;
+  --radius-sm: 6px;
+  --shadow: 0 1px 2px rgba(20, 20, 30, .04);
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --room-wall: #E3E6EF;
+  --room-floor: #DCDFE9;
+  color: var(--text); font: 14px/1.55 var(--font); -webkit-font-smoothing: antialiased;
+  position: relative; isolation: isolate; height: 100%; overflow-x: hidden; overflow-y: auto; overscroll-behavior: none; touch-action: pan-y;
+  display: flex;
+  background:
+    radial-gradient(60% 38% at 50% 22%, rgba(255, 255, 255, .9), rgba(255, 255, 255, 0) 70%),
+    linear-gradient(180deg, #E8EAF2 0%, var(--room-wall) 46%, var(--room-floor) 100%);
+}
+/* The room stays put: a sideways swipe neither bounces it nor turns into browser back/forward. */
+html:has(.classroom), body:has(.classroom) { overscroll-behavior: none; overflow-x: hidden; }
+.classroom .room-fit { flex: none; width: 100%; margin: auto 0; position: relative; overflow-x: clip; }
+/* One fixed-width layout, scaled whole by useStageFit; cqw inside is always the stage's own width. */
+.classroom .room-stage { position: absolute; top: 0; left: 0; transform-origin: 0 0; padding: 12px 0 12px; container-type: inline-size; }
+.classroom *, .classroom *::before, .classroom *::after { box-sizing: border-box; }
+.classroom a { color: inherit; text-decoration: none; }
+.classroom button { font: inherit; color: inherit; }
+.classroom h1, .classroom h2, .classroom h3, .classroom p { margin: 0; }
+.classroom svg { flex-shrink: 0; }
+
+.classroom .site-mark { display: inline-grid; place-items: center; flex-shrink: 0; border-radius: 6px; color: #fff; font-size: 12px; font-weight: 700; }
+.classroom .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: var(--radius-sm); border: 1px solid var(--line-strong); background: var(--surface); color: var(--text); font-weight: 500; cursor: pointer; white-space: nowrap; box-shadow: var(--shadow); }
+.classroom .btn:hover:not(:disabled) { background: var(--hover); }
+.classroom .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.classroom .btn.primary:hover:not(:disabled) { background: var(--accent-ink); }
+.classroom .icon-btn { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-2); cursor: pointer; }
+.classroom .icon-btn:hover { background: var(--hover); color: var(--text); }
+.classroom .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); flex-shrink: 0; }
+.classroom .dot.ok { background: var(--ok); } .classroom .dot.bad { background: var(--bad); }
+
+.classroom .room-brand { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 2px 0 14px; color: #5A6075; }
+.classroom .room-brand-logo { border-radius: 11px; object-fit: contain; background: #fff; box-shadow: 0 8px 14px -8px rgba(40, 48, 90, .5); }
+.classroom .room-brand .site-mark { border-radius: 11px; font-size: 18px; box-shadow: 0 8px 14px -8px rgba(40, 48, 90, .5); }
+.classroom .room-brand-name { font-size: 22px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; color: #3D4358; }
+.classroom .room-brand-domain { font-size: 13px; color: #7D8397; }
+.classroom .room-brand-switch { position: relative; }
+.classroom .room-brand-button { display: flex; align-items: center; gap: 12px; padding: 6px 12px 6px 6px; border: 0; border-radius: 16px; background: none; cursor: pointer; transition: background .15s ease; }
+.classroom .room-brand-button:hover, .classroom .room-brand.open .room-brand-button { background: rgba(255, 255, 255, .6); }
+.classroom .room-brand-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.classroom .room-brand-chevron { display: grid; color: #7D8397; transition: transform .15s ease; }
+.classroom .room-brand.open .room-brand-chevron { transform: rotate(180deg); }
+/* The console's site menu, dropped under the name and above every seat (seats stack below 5000). */
+.classroom .room-brand.open { position: relative; z-index: 5500; }
+.classroom .room-brand .switcher-menu { top: calc(100% + 6px); left: 50%; right: auto; width: 320px; transform: translateX(-50%); box-shadow: 0 16px 40px -16px rgba(30, 40, 90, .3); }
+
+.classroom .room-front { display: grid; grid-template-columns: 25fr 56fr 25fr; justify-content: center; max-width: calc(1072px + 14cqw); margin: 0 auto; align-items: stretch; gap: 6px; padding: 0 7cqw; position: relative; top: 2.5cqw; z-index: 2; perspective: 1500px; perspective-origin: 50% -10%; }
+
+/* screens: one big centre screen, a smaller one either side turned toward it; glanceable only, any of them opens the workbench */
+.classroom .big-screen.left { --screen-yaw: 22deg; }
+.classroom .big-screen.right { --screen-yaw: -22deg; }
+/* The turn lifts a side screen's inner corner; drop it so that corner meets the centre screen's foot.
+   A share of its own height, so it holds as the three screens scale together. */
+.classroom .big-screen.side { --screen-drop: 8.2%; }
+/* View transition names must be unique on the page, so only the centre screen morphs. */
+.classroom .big-screen { transform: translateY(var(--screen-drop, 0px)) rotateX(-16deg) rotateY(var(--screen-yaw, 0deg)); transform-origin: 50% 100%; justify-self: center; width: 100%; display: block; padding: 9px; border: 0; border-radius: 16px; font: inherit; text-align: left; cursor: pointer; background: linear-gradient(180deg, #3A3F52, #262A38); box-shadow: 0 0 0 1px rgba(255,255,255,.15) inset, 0 34px 60px -30px rgba(40, 60, 140, .55), 0 0 70px rgba(160, 180, 255, .35); transition: box-shadow .2s ease, transform .2s ease; }
+.classroom .big-screen.main { view-transition-name: big-screen; }
+.classroom .big-screen:hover, .classroom .big-screen:focus-visible { outline: none; transform: translateY(var(--screen-drop, 0px)) rotateX(-16deg) rotateY(var(--screen-yaw, 0deg)) translateY(-3px); box-shadow: 0 0 0 1px rgba(255,255,255,.2) inset, 0 40px 70px -30px rgba(40, 60, 140, .6), 0 0 90px rgba(140, 170, 255, .6); }
+.classroom .screen-glass { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; aspect-ratio: 16 / 7; padding: 7% 7% 6%; border-radius: 8px; overflow: hidden;
+  background:
+    radial-gradient(40% 50% at 12% 0%, rgba(255,255,255,.95), rgba(255,255,255,0)),
+    radial-gradient(30% 40% at 85% 10%, rgba(214, 226, 255, .9), rgba(214, 226, 255, 0)),
+    linear-gradient(180deg, #F4F7FF 0%, #E8EEFC 100%); }
+.classroom .screen-glass::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(60, 80, 150, .10), rgba(60, 80, 150, 0) 9%, rgba(60, 80, 150, 0) 91%, rgba(60, 80, 150, .10)); pointer-events: none; }
+.classroom .screen-glass::after { content: ""; position: absolute; inset: 0; background: linear-gradient(115deg, rgba(255,255,255,.35) 0 22%, rgba(255,255,255,0) 22.1%); pointer-events: none; }
+.classroom .screen-sub { font-size: clamp(11px, 1.1cqw, 14px); color: #5A6284; }
+.classroom .chip-icon { display: grid; color: var(--accent); }
+.classroom .chip-icon svg { width: clamp(12px, 1.3cqw, 16px); height: auto; }
+.classroom .screen-enter { position: absolute; right: 5%; top: 7%; display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; border-radius: 999px; background: var(--accent); color: #fff; font-size: 12px; font-weight: 600; opacity: 0; transform: translateY(-4px); transition: opacity .15s, transform .15s; z-index: 1; }
+.classroom .screen-enter svg { width: 13px; height: 13px; }
+.classroom .big-screen.side { padding: 7px; border-radius: 14px; }
+/* Side screens take the centre screen's height from the grid row; `contain: size` keeps their content from growing it. */
+.classroom .big-screen.side { contain: size; }
+.classroom .big-screen.side .screen-glass { aspect-ratio: auto; height: 100%; gap: 3px; padding: 7% 9% 7%; }
+.classroom .side-title { font-size: clamp(14px, 1.45cqw, 19px); line-height: 1.2; font-weight: 800; letter-spacing: -.01em; color: #1E2558; }
+
+/* left: the team right now */
+.classroom .team-rows { display: flex; flex-direction: column; gap: 6px; width: 100%; margin-top: auto; }
+.classroom .team-row { display: flex; align-items: center; gap: 7px; padding: 6px 10px; border-radius: 9px; background: rgba(255,255,255,.9); box-shadow: 0 4px 12px -8px rgba(30, 40, 90, .3); font-size: clamp(10px, .9cqw, 12px); color: var(--text-2); }
+.classroom .team-row .dot { width: 8px; height: 8px; margin: 0 3px; }
+.classroom .team-row b { margin-left: auto; font-size: clamp(13px, 1.3cqw, 17px); font-weight: 750; color: #1E2558; font-variant-numeric: tabular-nums; }
+
+/* centre: the ledger of everything produced */
+.classroom .big-screen.main .ledger-screen { gap: 0; padding: 4.5% 5.5% 3.5%; }
+.classroom .ledger-head { font-size: clamp(11px, 1cqw, 13px); font-weight: 700; letter-spacing: .06em; color: #5A6284; }
+.classroom .ledger-body { flex: 1; display: grid; grid-template-columns: 34% 1fr; gap: 4%; width: 100%; align-items: center; min-height: 0; }
+.classroom .ledger-hero { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.classroom .ledger-hero-label { font-size: clamp(11px, 1cqw, 13px); color: #5A6284; }
+.classroom .ledger-hero-value { display: flex; align-items: baseline; gap: 4px; font-size: clamp(11px, 1cqw, 13px); color: #5A6284; }
+.classroom .ledger-hero-value b { font-size: clamp(34px, 4.2cqw, 56px); line-height: 1; font-weight: 800; letter-spacing: -.03em; color: #1E2558; font-variant-numeric: tabular-nums; }
+.classroom .ledger-added { margin-top: 4px; padding: 2px 8px; border-radius: 999px; background: rgba(31, 157, 85, .12); color: var(--ok); font-size: clamp(10px, .9cqw, 12px); font-weight: 650; }
+.classroom .ledger-assets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.classroom .ledger-asset { display: flex; flex-direction: column; gap: 1px; padding: 6px 9px; border-radius: 9px; background: rgba(255,255,255,.9); box-shadow: 0 4px 12px -8px rgba(30, 40, 90, .3); min-width: 0; }
+.classroom .ledger-asset-label { font-size: clamp(9px, .8cqw, 11px); color: var(--text-2); white-space: nowrap; }
+.classroom .ledger-asset-value { display: flex; align-items: baseline; gap: 2px; font-size: clamp(9px, .8cqw, 11px); color: var(--text-2); white-space: nowrap; }
+.classroom .ledger-asset-value b { font-size: clamp(13px, 1.3cqw, 17px); font-weight: 750; color: #1E2558; font-variant-numeric: tabular-nums; }
+.classroom .ledger-asset-value em { margin-left: auto; font-style: normal; font-weight: 650; color: var(--ok); }
+.classroom .ledger-search { display: flex; align-items: center; gap: 14px; width: 100%; padding-top: 6px; border-top: 1px solid rgba(60, 80, 150, .12); font-size: clamp(9px, .85cqw, 11px); color: #5A6284; white-space: nowrap; }
+.classroom .ledger-search b { color: #1E2558; font-weight: 700; }
+.classroom .ledger-source { margin-left: auto; color: var(--text-3); }
+
+/* right: a short view of Leader goals. */
+.classroom .side-title small { margin-left: 6px; font-size: clamp(9px, .8cqw, 11px); font-weight: 500; letter-spacing: 0; color: var(--text-3); }
+.classroom .log-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; display: flex; flex-direction: column; gap: 3px; width: 100%; margin-top: 4px; -webkit-mask-image: linear-gradient(180deg, transparent, #000 6px, #000 calc(100% - 14px), transparent); mask-image: linear-gradient(180deg, transparent, #000 6px, #000 calc(100% - 14px), transparent); }
+.classroom .log-list::-webkit-scrollbar { display: none; }
+.classroom .log-item { flex: none; display: flex; flex-direction: column; gap: 1px; padding: 3px 0 3px 10px; border-left: 2px solid rgba(94, 106, 210, .35); min-width: 0; }
+.classroom .log-item:last-child { margin-bottom: 12px; }
+.classroom .log-when { font-size: clamp(9px, .8cqw, 11px); font-weight: 650; color: var(--accent); }
+.classroom .log-what { font-size: clamp(9px, .8cqw, 11px); line-height: 1.5; color: var(--text-2); white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+.classroom .log-what b { margin-right: 5px; font-weight: 700; color: #1E2558; }
+.classroom .big-screen:hover .screen-enter, .classroom .big-screen:focus-visible .screen-enter { opacity: 1; transform: none; }
+
+/* seating */
+/* The hall shares the room's stacking context with the screens: tiers and the stage sit
+   behind them (z 1 < 2), every seat in front. */
+.classroom .seating { position: relative; width: 100%; }
+.classroom .tiers { position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; z-index: 1; }
+.classroom .seat { position: absolute; transform: translate(-50%, -88%); display: block; padding: 0; border: 0; background: none; aspect-ratio: 1; }
+.classroom .seat-figure { position: relative; display: block; width: 100%; height: 100%; transition: filter .18s ease; }
+.classroom .seat-figure svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.classroom .figure-3d { position: absolute; max-width: none; pointer-events: none; user-select: none; }
+/* Scaled from the desk top so it still meets the hands. */
+.classroom .seat-figure .seat-desk { position: absolute; inset: 0; pointer-events: none; transform: scale(var(--desk-scale, 1)); transform-origin: 50% 60%; }
+.classroom .portrait-3d { display: block; width: 100%; height: 100%; object-fit: cover; }
+.classroom .seat.agent { cursor: pointer; }
+.classroom .seat.agent:hover .seat-figure, .classroom .seat.agent:focus-visible .seat-figure { filter: drop-shadow(0 6px 8px rgba(40, 50, 110, .25)); }
+.classroom .seat.agent:focus-visible { outline: none; }
+.classroom .seat.agent.selected::before { content: ""; position: absolute; inset: 78% 16% -4%; border-radius: 50%; border: 2px solid #8FB0FF; background: rgba(120, 160, 255, .18); box-shadow: 0 0 0 4px rgba(110, 150, 255, .22), 0 0 24px 6px rgba(90, 140, 255, .55); }
+
+
+/* Names lie on the floor behind each seat, faint as a shadow; the transform carries the floor's slant. */
+.classroom .desk-name { position: absolute; left: 50%; top: 86%; transform: translate(-50%, -50%); color: rgba(120, 92, 55, .5); font-weight: 700; letter-spacing: .12em; white-space: nowrap; pointer-events: none; }
+.classroom .floor-name { position: absolute; color: rgba(40, 48, 90, .2); font-weight: 700; letter-spacing: .04em; white-space: nowrap; pointer-events: none; user-select: none; }
+/* Seats stack by depth below 4000 (SEAT_Z_TOP in Classroom.tsx); a hovered seat rises above them all, under the card. */
+.classroom .seat.agent:hover { z-index: 5000 !important; }
+
+/* status bubbles: colorless liquid glass; only the icon tells the kind. Above every seat, below the card. */
+.classroom .status-bubble { position: absolute; display: inline-flex; align-items: center; gap: .5em; height: 2.3em; padding: 0 1em 0 .8em; border-radius: 1.15em; font-size: clamp(11px, 1cqw, 13px); line-height: 1; color: rgba(28, 28, 30, .88); white-space: nowrap; pointer-events: none; user-select: none;
+  background: linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,.2));
+  -webkit-backdrop-filter: blur(18px) saturate(180%) brightness(1.06); backdrop-filter: blur(18px) saturate(180%) brightness(1.06);
+  border: .5px solid rgba(255,255,255,.9);
+  box-shadow: inset 0 .5px 0 #fff, inset 0 -.5px 0 rgba(255,255,255,.5), inset 0 0 12px rgba(255,255,255,.25), 0 1px 2px rgba(30, 40, 90, .08), 0 8px 24px rgba(30, 40, 90, .14);
+  animation: bubble-in .24s ease-out; }
+/* The specular sheen across the upper half. */
+.classroom .status-bubble::before { content: ""; position: absolute; inset: 1px .6em auto; height: 45%; border-radius: 1em 1em 50% 50%; background: linear-gradient(180deg, rgba(255,255,255,.6), rgba(255,255,255,0)); pointer-events: none; }
+.classroom .bubble-icon { width: 1.2em; height: 1.2em; flex-shrink: 0; color: rgba(28, 28, 30, .78); overflow: visible; }
+.classroom .bubble-spin { transform-origin: 12px 12px; animation: bubble-spin 1.4s linear infinite; }
+.classroom .bubble-unread { width: .45em; height: .45em; margin-left: .1em; border-radius: 50%; background: rgba(28, 28, 30, .72); }
+@keyframes bubble-in { from { opacity: 0; translate: 0 4px; } to { opacity: 1; translate: 0 0; } }
+@keyframes bubble-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .classroom .status-bubble, .classroom .bubble-spin { animation: none; }
+}
+
+/* The cabinet is a room object, separate from the three screens: the same bevelled plastic as
+   the crowd (figure3d.buildCabinet) standing on the same soft floor shadow, under a glass label
+   cut from the status bubbles' recipe so the room keeps one material language. */
+/* Anchor to the screen wall so the cabinet stays beside the main screen as the team grows. */
+.classroom .room-furnishings { position: absolute; left: 74%; top: calc(100% - 1cqw); transform: translateX(-50%); z-index: 3; pointer-events: none; }
+.classroom .room-filing-cabinet { position: relative; pointer-events: auto; display: flex; flex-direction: column; align-items: center; width: 8cqw; padding: 0; border: 0; background: none; cursor: pointer; transition: transform .18s ease; }
+.classroom .cabinet-figure { position: relative; display: block; width: 100%; aspect-ratio: 1; }
+.classroom .cabinet-figure svg { display: block; width: 100%; height: 100%; }
+.classroom .room-filing-cabinet .figure-3d { position: absolute; max-width: none; pointer-events: none; user-select: none; }
+/* The glass label floats above the cabinet only while interacting with it. */
+.classroom .cabinet-label { position: absolute; bottom: calc(100% - 1.4cqw); left: 50%; transform: translate(-50%, 4px); opacity: 0; visibility: hidden; pointer-events: none; white-space: nowrap; display: inline-flex; flex-direction: column; align-items: center; gap: 1px; padding: 4px 10px 5px; border-radius: 10px; font-size: 10px; font-weight: 650; line-height: 1.25; color: rgba(28, 28, 30, .88);
+  background: linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,.2));
+  -webkit-backdrop-filter: blur(18px) saturate(180%) brightness(1.06); backdrop-filter: blur(18px) saturate(180%) brightness(1.06);
+  border: .5px solid rgba(255,255,255,.9);
+  box-shadow: inset 0 .5px 0 #fff, inset 0 -.5px 0 rgba(255,255,255,.5), inset 0 0 12px rgba(255,255,255,.25), 0 1px 2px rgba(30, 40, 90, .08), 0 8px 24px rgba(30, 40, 90, .14);
+  transition: opacity .18s ease, transform .18s ease, visibility .18s ease; }
+.classroom .room-filing-cabinet:hover .cabinet-label, .classroom .room-filing-cabinet:focus-visible .cabinet-label { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
+.classroom .room-filing-cabinet:hover { transform: translateY(-4px); }
+.classroom .room-filing-cabinet:hover .cabinet-label { box-shadow: inset 0 .5px 0 #fff, inset 0 -.5px 0 rgba(255,255,255,.5), inset 0 0 12px rgba(255,255,255,.35), 0 2px 4px rgba(30, 40, 90, .1), 0 12px 30px rgba(30, 40, 90, .18); }
+.classroom .room-filing-cabinet:hover .figure-3d { filter: drop-shadow(0 6px 8px rgba(40, 50, 110, .25)); }
+.classroom .room-filing-cabinet:focus-visible { outline: 2px solid var(--accent); outline-offset: 6px; border-radius: 14px; }
+@media (prefers-reduced-motion: reduce) { .classroom .room-filing-cabinet, .classroom .cabinet-label { transition: none; } }
+
+.classroom-status-error { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 5000; background: #fff5e8; color: #947648; padding: 10px 18px; border-radius: 12px; font-size: 12px; }
+
+.classroom .log-entry-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.classroom .log-entry-heading b { font-size: clamp(10px, .9cqw, 12px); color: #1e2558; font-weight: 700; }
+.classroom .log-entry-heading .log-when { flex-shrink: 0; font-size: 9px; font-weight: 400; }
+.classroom .ledger-freshness { color: var(--text-3); font-size: 9px; line-height: 1.3; margin-top: 2px; }
+.classroom .ledger-sitemap b { font-size: 13px; }

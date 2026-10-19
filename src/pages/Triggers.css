@@ -1,0 +1,10 @@
+.trigger-page { max-width: 980px; }
+.trigger-page-head { margin-bottom: 28px; }
+.trigger-page-head h1 { font-size: 24px; line-height: 1.25; margin: 6px 0 8px; }
+.trigger-page-head > p:last-child { color: var(--text-secondary); }
+.trigger-config { padding: 20px; border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.trigger-config .kv { grid-template-columns: minmax(150px, 220px) minmax(0, 1fr); }
+.trigger-config .input { width: min(280px, 100%); }
+.trigger-config input[type='checkbox'] { width: 16px; height: 16px; accent-color: var(--accent); }
+.trigger-next { margin-top: 16px; color: var(--text-secondary); font-size: var(--fs-meta); }
+.trigger-success { margin-bottom: 16px; color: var(--state-ok); }

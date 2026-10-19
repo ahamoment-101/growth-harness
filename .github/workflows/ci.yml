@@ -1,0 +1,53 @@
+name: CI
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.22.3
+          cache: npm
+      - run: npm ci --registry=https://registry.npmjs.org
+      - run: npm test
+      - run: npm run test:sync
+      - run: node --test scripts/check-public-boundary.test.mjs
+      - run: node --test scripts/d1-target.test.mjs
+      - run: node scripts/check-public-boundary.mjs
+      - run: npm run build
+      - run: node scripts/check-public-boundary.mjs --artifacts dist
+      - run: node --test scripts/sanitize-build.test.mjs
+      - run: node scripts/verify-installation-local.mjs
+      - run: npm run verify:self-hosting:local
+      - run: npm audit --registry=https://registry.npmjs.org --audit-level=moderate
+  credentials:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.22.3
+      - name: Install checksum-verified Gitleaks
+        run: |
+          curl -fsSLO https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          curl -fsSLO https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_checksums.txt
+          grep ' gitleaks_8.30.1_linux_x64.tar.gz$' gitleaks_8.30.1_checksums.txt | sha256sum -c -
+          tar -xzf gitleaks_8.30.1_linux_x64.tar.gz gitleaks
+          mkdir -p "$RUNNER_TEMP/gitleaks-bin"
+          mv gitleaks "$RUNNER_TEMP/gitleaks-bin/"
+          echo "$RUNNER_TEMP/gitleaks-bin" >> "$GITHUB_PATH"
+          rm gitleaks_8.30.1_linux_x64.tar.gz gitleaks_8.30.1_checksums.txt
+      - run: node scripts/check-secrets.mjs
+      - run: node scripts/check-public-boundary.mjs --history

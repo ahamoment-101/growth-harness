@@ -1,0 +1,37 @@
+/* Studio top bar: back + Title. Reused from agencize Instant App AppNavLeft.css */
+
+.ia-nav-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+}
+
+.ia-back-chat-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 7px 12px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+}
+.ia-back-chat-btn:hover { background: #f3f4f6; border-color: #d1d5db; }
+
+.ia-nav-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #111827;
+    margin-left: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

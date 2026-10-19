@@ -1,0 +1,30 @@
+{
+  "forbiddenPaths": [
+    "worker/private-models/",
+    "docs/provider-history/",
+    "docs/acceptance/",
+    "docs/internal/",
+    "docs/internal-archive/",
+    "prototypes/",
+    "hitl-lab/",
+    ".claude/",
+    ".public-core-sync.json",
+    ".zcode/",
+    "design/",
+    "node_modules/",
+    ".wrangler/"
+  ],
+  "forbiddenExtensions": [".db", ".sqlite", ".sqlite3", ".dump", ".pem", ".key", ".p12", ".pfx", ".bundle"],
+  "thirdPartyArtifactContent": ["bigmodel.cn"],
+  "forbiddenArtifactContent": ["keyword-library-source", "UI mockup · Static data", "The interface is displayed with sample data"],
+  "forbiddenContent": [
+    "AGENTSFLARE_API_KEY",
+    "GLM_API_KEY",
+    "agentsflare",
+    "bigmodel.cn",
+    "glm-chat",
+    "openai-chat-gpt5",
+    "openai-chat-claude",
+    "openai-chat-gemini"
+  ]
+}

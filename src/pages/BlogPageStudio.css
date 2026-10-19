@@ -1,0 +1,142 @@
+/* Instant App generating-state split layout + fullscreen shell, excerpted from InstantApp.css / ChatDetail.css */
+
+.chat-detail-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #f7f6f3;
+}
+
+.chat-detail-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  margin: 0 auto;
+  position: relative;
+  overflow: hidden;
+}
+
+.chat-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  height: 64px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 300;
+}
+
+.chat-main-layout {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  height: 100%;
+  min-width: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.ia-blueprint-layout.ia-generating-wrapper {
+  position: fixed;
+  top: 64px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+  overflow: hidden;
+}
+
+.ia-generating-center {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+}
+
+.ia-gen-row {
+  display: flex;
+  gap: 12px;
+  margin: 12px;
+  width: calc(100% - 24px);
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+}
+
+.ia-gen-left {
+  width: 30%;
+  flex-shrink: 0;
+  min-height: 0;
+  background: #fff;
+  border-radius: 16px;
+  border: 0.5px solid rgba(0, 0, 0, 0.08);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.ia-gen-left-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  min-height: 0;
+}
+
+.ia-gen-left-body .spc-panel {
+  flex: 1;
+  min-height: 0;
+  width: auto;
+  margin: 0;
+  align-self: stretch;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.ia-gen-right {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+}
+
+.ia-iframe-shell {
+  flex: 1;
+  min-height: 0;
+  border: 0.5px solid rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  overflow: hidden;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ia-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.ia-iframe-empty {
+  color: #a09d96;
+  font-size: 12px;
+  font-weight: 300;
+}
