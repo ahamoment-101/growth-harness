@@ -3,13 +3,42 @@ import { z } from 'zod';
 import { conversationChannel } from './conversation-channel';
 import { conversationTool } from './conversation-tools';
 import { testModelProfile } from './model-registry.test-fixture';
+import { resolveModelProfile } from './model-registry';
+import { requestModelText } from '../lib/model-request';
 
 describe('native conversation channel wire protocol', () => {
+  it.each(['content_review', 'article_production'] as const)('sends configured reasoning for %s through both request paths', async agentId => {
+    const profile = resolveModelProfile({ MODEL_REGISTRY: undefined, OPENROUTER_API_KEY: 'synthetic-key' }, agentId);
+    const requests: Record<string, any>[] = [];
+    const fetchRequest = async (_url: unknown, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body));
+      requests.push(body);
+      const usage = { prompt_tokens: 10, completion_tokens: 2, total_tokens: 12 };
+      if (!body.stream) return Response.json({ id: 'synthetic', choices: [{ message: { content: '{}' }, finish_reason: 'stop' }], usage });
+      return new Response(`data: ${JSON.stringify({ id: 'synthetic', choices: [{ index: 0, delta: { role: 'assistant', content: '{}' }, finish_reason: 'stop' }], usage })}\n\ndata: [DONE]\n\n`, { headers: { 'content-type': 'text/event-stream' } });
+    };
+    const channel = conversationChannel(profile, fetchRequest);
+    const context = { messages: [{ role: 'user' as const, content: 'Synthetic request', timestamp: 1 }] };
+    // Ordinary decisions, audits and isolated reviews omit an explicit reasoning override.
+    await (await channel.stream(channel.model, context)).result();
+    await (await channel.stream(channel.model, context, { reasoning: 'high' })).result();
+    const withoutReasoning = conversationChannel({ ...profile, reasoningEffort: 'none' }, fetchRequest);
+    await (await withoutReasoning.stream(withoutReasoning.model, context)).result();
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = fetchRequest;
+    try {
+      await requestModelText(profile, { messages: [{ role: 'user', content: 'Synthetic request' }] });
+      await requestModelText(profile, { messages: [{ role: 'user', content: 'Synthetic request' }], reasoningEffort: 'none' });
+    } finally { globalThis.fetch = originalFetch; }
+    expect(requests.map(body => body.model)).toEqual(Array(5).fill(profile.model));
+    expect(requests.map(body => body.reasoning)).toEqual([{ effort: 'low' }, { effort: 'high' }, { effort: 'none' }, { effort: 'low' }, { effort: 'none' }]);
+  });
+
   it('serializes native history and multiple calls, preserving channel transforms and decoded stop reason', async () => {
     let request: Record<string, unknown> = {};
     const channel = conversationChannel(testModelProfile({ provider: 'fixture', keyName: 'MODEL_API_KEY',
       baseUrl: 'https://example.invalid/v1', model: 'gpt-5-test', contextWindow: 32000, maxOutputTokens: 1000,
-      reasoningSupported: false, compatibility: { maxTokensField: 'max_completion_tokens' } }), async (url, init) => {
+      reasoningSupported: false, reasoningEffort: 'high', compatibility: { maxTokensField: 'max_completion_tokens' } }), async (url, init) => {
         expect(String(url)).toBe('https://example.invalid/v1/chat/completions');
         expect(new Headers(init?.headers).get('authorization')).toBe('Bearer test-key');
         request = JSON.parse(String(init?.body));

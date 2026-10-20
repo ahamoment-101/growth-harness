@@ -1,0 +1,151 @@
+{
+  "version": 2,
+  "defaultProfile": "openrouter/glm",
+  "agentProfiles": {
+    "growth_leader": "openrouter/glm",
+    "runtime_synthetic": "openrouter/glm",
+    "runtime_synthetic_child": "openrouter/glm",
+    "strategy_research": "openrouter/glm",
+    "business_research": "openrouter/glm",
+    "deep_research": "openrouter/glm",
+    "keyword_research": "openrouter/glm",
+    "topic_decision": "openrouter/glm",
+    "content_production": "openrouter/glm",
+    "article_production": "openrouter/writer",
+    "content_review": "openrouter/glm"
+  },
+  "connections": {
+    "openrouter": {
+      "protocol": "openai-chat",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "apiKeyEnv": "OPENROUTER_API_KEY",
+      "headers": {
+        "HTTP-Referer": "https://github.com/ahamoment-101/growth-harness",
+        "X-OpenRouter-Title": "GrowthHarness"
+      }
+    },
+    "openai": {
+      "protocol": "openai-responses",
+      "baseUrl": "https://api.openai.com/v1",
+      "apiKeyEnv": "OPENAI_API_KEY"
+    },
+    "anthropic": {
+      "protocol": "anthropic-messages",
+      "baseUrl": "https://api.anthropic.com/v1",
+      "apiKeyEnv": "ANTHROPIC_API_KEY"
+    }
+  },
+  "profiles": {
+    "openai/default": {
+      "supportedParameters": [
+        "tools",
+        "tool_choice",
+        "max_output_tokens",
+        "text.format",
+        "reasoning"
+      ],
+      "reasoningSupported": true,
+      "reasoningRequired": false,
+      "connection": "openai",
+      "model": "gpt-5.6-terra",
+      "contextWindow": 1050000,
+      "maxOutputTokens": 128000,
+      "sourceUrl": "https://developers.openai.com/api/docs/models/gpt-5.6-terra"
+    },
+    "anthropic/default": {
+      "supportedParameters": [
+        "tools",
+        "tool_choice",
+        "max_tokens",
+        "response_format"
+      ],
+      "reasoningSupported": true,
+      "reasoningRequired": false,
+      "connection": "anthropic",
+      "model": "claude-sonnet-5-5",
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "sourceUrl": "https://platform.claude.com/docs/en/models/overview",
+      "compatibility": {
+        "forceAdaptiveThinking": true
+      }
+    },
+    "openrouter/glm": {
+      "connection": "openrouter",
+      "model": "z-ai/glm-5.3-flash",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 943718,
+      "supportedParameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "logit_bias",
+        "logprobs",
+        "max_tokens",
+        "min_p",
+        "parallel_tool_calls",
+        "presence_penalty",
+        "reasoning",
+        "reasoning_effort",
+        "repetition_penalty",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_logprobs",
+        "top_p"
+      ],
+      "reasoningSupported": true,
+      "reasoningRequired": false,
+      "compatibility": {
+        "thinkingFormat": "openrouter",
+        "supportsReasoningEffort": true
+      },
+      "sourceUrl": "https://openrouter.ai/z-ai/glm-5.3-flash"
+    },
+    "openrouter/writer": {
+      "connection": "openrouter",
+      "model": "google/gemini-3.8-flash",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "supportedParameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p"
+      ],
+      "reasoningSupported": true,
+      "reasoningRequired": false,
+      "compatibility": {
+        "thinkingFormat": "openrouter",
+        "supportsReasoningEffort": true
+      },
+      "sourceUrl": "https://openrouter.ai/google/gemini-3.8-flash"
+    }
+  },
+  "defaultReasoning": "low",
+  "agentReasoning": {
+    "growth_leader": "low",
+    "runtime_synthetic": "none",
+    "runtime_synthetic_child": "none",
+    "strategy_research": "low",
+    "business_research": "low",
+    "deep_research": "low",
+    "keyword_research": "low",
+    "topic_decision": "low",
+    "content_production": "low",
+    "article_production": "low",
+    "content_review": "low"
+  }
+}

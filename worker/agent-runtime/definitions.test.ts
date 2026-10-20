@@ -22,15 +22,14 @@ describe('agent runtime definitions', () => {
     expect(() => assertAgentDefinition(agentDefinition('strategy_research'))).not.toThrow();
     expect(agentDefinition('topic_decision').definitionVersion).toBe(26);
     expect(agentDefinition('topic_decision').promptVersion).toBe('topic-decision-library-v19-language-english-v2');
-    expect(agentDefinition('topic_decision').modelPolicy.reasoning).toBe('low');
     expect(agentDefinition('content_production').tools).toEqual([
       'save_coverage_plan', 'inspect_content_group', 'read_content_article', 'read_published_articles', 'edit_article_internal_links', 'start_article_tasks', 'start_content_reviews',
       'complete_content_group', 'defer_content_group', 'request_human_input',
     ]);
     expect(agentDefinition('content_production').definitionVersion).toBe(25);
     expect(agentDefinition('content_production').promptVersion).toBe('content-production-agent-loop-v21-immutable-publication-english-v2');
-    expect(agentDefinition('article_production').definitionVersion).toBe(21);
-    expect(agentDefinition('article_production').promptVersion).toBe('article-production-agent-loop-v17-hitl-english-v2');
+    expect(agentDefinition('article_production').definitionVersion).toBe(23);
+    expect(agentDefinition('article_production').promptVersion).toBe('article-production-agent-loop-v19-editorial-readiness');
     expect(agentDefinition('article_production').tools).toEqual(['read_article_source', 'save_claim_evidence', 'read_published_articles', 'article_search_web', 'find_link_targets', 'submit_article', 'save_article_draft', 'run_self_check', 'deliver_article', 'defer_article', 'request_human_input']);
     expect(agentDefinition('content_review').tools).toEqual(['read_article_source', 'submit_content_review', 'defer_content_review', 'request_human_input']);
     expect(agentDefinition('content_review').definitionVersion).toBe(15);

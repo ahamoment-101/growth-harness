@@ -49,7 +49,6 @@ export const API_ROUTE_INVENTORY = [
   item('/api/sites/:siteId/agents/:agentId/memories', ['GET'], 'workspace_agent'),
   item('/api/sites/:siteId/agents/:agentId/drafts', ['GET'], 'workspace_agent'),
   item('/api/sites/:siteId/agents/:agentId/runs', ['GET'], 'workspace_agent'),
-  item('/api/agent-runtime/probe', ['GET', 'POST'], 'workspace_agent'),
   item('/api/sites/:siteId/topic-decision', ['GET'], 'workspace_agent'),
   item('/api/sites/:siteId/topic-decision/groups/:groupId/approve', ['POST'], 'workspace_agent'),
   item('/api/sites/:siteId/topic-decision/groups/:groupId/reject', ['POST'], 'workspace_agent'),
@@ -85,8 +84,6 @@ export const API_ROUTE_INVENTORY = [
   item('/api/jobs/:jobId/visibility', ['POST'], 'workspace'),
   item('/api/jobs/:jobId/localize', ['POST'], 'workspace_agent'),
   item('/api/jobs/:jobId/localizations/:locale', ['DELETE'], 'workspace'),
-  item('/api/dev/mock-ingest', ['POST'], 'workspace'),
-  item('/api/dev/seed-job', ['POST'], 'workspace'),
 ] as const satisfies readonly ApiRouteInventoryItem[];
 
 export function classifyConsoleRequest(path: string): ConsoleAccessClass {
@@ -95,7 +92,6 @@ export function classifyConsoleRequest(path: string): ConsoleAccessClass {
   if (path === '/api/health' || path === '/api/auth/login' || path === '/api/auth/google/callback' || path === '/api/auth/setup' || path === '/api/auth/password/login') return 'public';
   if (path === '/api/auth/me' || path === '/api/auth/logout') return 'session_optional';
   if (
-    path === '/api/agent-runtime/probe' ||
     /^\/api\/sites\/[^/]+\/leader(?:\/|$)/.test(path) ||
     /^\/api\/sites\/[^/]+\/agents\//.test(path) ||
     /^\/api\/sites\/[^/]+\/agent-panel\//.test(path) ||

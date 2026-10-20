@@ -13,8 +13,9 @@ AUTH_GOOGLE_CLIENT_ID=
 AUTH_GOOGLE_CLIENT_SECRET=
 
 # Models: keys are required only for providers referenced by MODEL_REGISTRY.
-# This sample uses OpenRouter for every Agent. agentProfiles can override individual Agents.
-MODEL_REGISTRY={"version":2,"defaultProfile":"openrouter/default","agentProfiles":{},"connections":{"openrouter":{"protocol":"openai-chat","baseUrl":"https://openrouter.ai/api/v1","apiKeyEnv":"OPENROUTER_API_KEY","headers":{"HTTP-Referer":"https://github.com/ahamoment-101/growth-harness","X-OpenRouter-Title":"GrowthHarness"}},"openai":{"protocol":"openai-responses","baseUrl":"https://api.openai.com/v1","apiKeyEnv":"OPENAI_API_KEY"},"anthropic":{"protocol":"anthropic-messages","baseUrl":"https://api.anthropic.com/v1","apiKeyEnv":"ANTHROPIC_API_KEY"}},"profiles":{"openrouter/default":{"supportedParameters":["tools","tool_choice","max_tokens","response_format","reasoning","reasoning_effort"],"reasoningSupported":true,"reasoningRequired":false,"connection":"openrouter","model":"openai/gpt-5.6-terra","contextWindow":1050000,"maxOutputTokens":128000,"sourceUrl":"https://openrouter.ai/api/v1/models","compatibility":{"thinkingFormat":"openrouter","supportsReasoningEffort":true}},"openai/default":{"supportedParameters":["tools","tool_choice","max_output_tokens","text.format","reasoning"],"reasoningSupported":true,"reasoningRequired":false,"connection":"openai","model":"gpt-5.6-terra","contextWindow":1050000,"maxOutputTokens":128000,"sourceUrl":"https://developers.openai.com/api/docs/models/gpt-5.6-terra"},"anthropic/default":{"supportedParameters":["tools","tool_choice","max_tokens","response_format"],"reasoningSupported":true,"reasoningRequired":false,"connection":"anthropic","model":"claude-sonnet-5-5","contextWindow":1000000,"maxOutputTokens":128000,"sourceUrl":"https://platform.claude.com/docs/en/models/overview","compatibility":{"forceAdaptiveThinking":true}}}}
+# Defaults and per-Agent reasoning: shared/config/agent-models.json. Only OPENROUTER_API_KEY is needed.
+# MODEL_REGISTRY is an optional full override (Wrangler for deployment, here for local only).
+# Production secret uploads use the bundled defaults or the Wrangler override, never the local override.
 
 # Optional web research. Research tools need this key.
 FIRECRAWL_API_KEY=
@@ -44,6 +45,3 @@ INDEXNOW_KEY=
 OPENROUTER_API_KEY=
 OPENAI_API_KEY=
 ANTHROPIC_API_KEY=
-
-# Local synthetic fixture endpoints only. Keep false in deployed installations.
-DEV_TOOLS_ENABLED=false

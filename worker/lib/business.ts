@@ -81,8 +81,17 @@ export async function saveBusinessModule(
 
 export function buildBusinessContext(modules: BusinessModuleView[]): string {
   const sections = modules
-    .filter((module) => Object.values(module.content).some((value) => value.trim()))
-    .map((module) => (module.markdown || businessModuleMarkdown(module.key, module.content)));
+    .map((module) => {
+      // Markdown is the editable document; parsed fields are a compatibility view,
+      // not a requirement that users preserve the template's exact headings.
+      const markdown = module.markdown.trim();
+      const visible = (value: string) => value.replace(/<!--[\s\S]*?-->/g, '').trim().replace(/\s+/g, ' ');
+      const emptyTemplate = businessModuleMarkdown(module.key, {});
+      if (visible(markdown) && visible(markdown) !== visible(emptyTemplate)) return markdown;
+      return Object.values(module.content).some((value) => value.trim())
+        ? businessModuleMarkdown(module.key, module.content) : '';
+    })
+    .filter(Boolean);
   if (!sections.length) {
     return 'No manually confirmed business information is available. Do not invent product claims, pricing, customers, or differentiators.';
   }

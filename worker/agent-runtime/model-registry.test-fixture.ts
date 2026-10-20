@@ -19,7 +19,7 @@ export function testModelRegistry(
   const connections: Record<string, unknown> = {};
   const models: Record<string, ModelProfile> = {};
   for (const [id, value] of Object.entries(profiles)) {
-    const { id: _id, provider, protocol, baseUrl, apiKey: _key, keyName, headers, ...profile } = value;
+    const { id: _id, provider, protocol, baseUrl, apiKey: _key, keyName, headers, reasoningEffort: _effort, ...profile } = value;
     const connection = provider || profile.connection;
     connections[connection] = { protocol, baseUrl, apiKeyEnv: keyName, ...(headers ? { headers } : {}) };
     models[id] = { ...profile, connection };

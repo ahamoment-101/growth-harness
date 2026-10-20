@@ -7,7 +7,8 @@ import { replayConversationResponse } from './conversation-replay';
 import { taskTestDb, resumeTestTask } from './task-test-db';
 import { agentDefinition } from './definitions';
 import { attachTask, finishTaskOperation, finishTaskTerminal, requireTask, stopTask, writeTaskWorkspace } from './task-store';
-import { appendConversationMessage, bindConversationOperation, conversationResumePoint, initializeConversation, readConversation, taskDecisionTurns } from './conversation-store';
+import { appendConversationMessage, bindConversationOperation, closeCancelledConversationCalls, conversationResumePoint, initializeConversation, readConversation, taskDecisionTurns } from './conversation-store';
+import { executionDatabase } from './execution-context';
 
 const definition = agentDefinition('strategy_research');
 function assistant(ids = ['a', 'b']): AssistantMessage {
@@ -28,6 +29,66 @@ async function fixture() {
 }
 
 describe('durable native conversation', () => {
+  async function cancelledFixture() {
+    const f = await fixture();
+    const operation = await bindConversationOperation(f.db, f.task, 'a', {});
+    await f.db.prepare("update agent_task_operations set status='running',external_json=? where id=?").bind('{"replay_safety":"unknown"}', operation.id).run();
+    await stopTask(f.db, f.task.active_run_id, 'cancelled', 'Owner cancelled');
+    const controller = { id: f.task.id, active_run_id: f.task.active_run_id, epoch: f.task.epoch, workspace_id: f.task.workspace_id, site_id: f.task.site_id, root_task_id: f.task.root_task_id };
+    const state = { cancellation: { controller, token: 'controller-token', leaseUntil: new Date(Date.now() + 60_000).toISOString(), done: [] } };
+    await f.db.prepare('insert into agent_runtime_commands(command_id,task_id,command,predecessor_json,created_at) values(?,?,?,?,?)')
+      .bind('cancel', f.task.id, 'cancel', JSON.stringify(state), new Date().toISOString()).run();
+    return { ...f, operation, state, scope: { commandId: 'cancel', token: 'controller-token' } };
+  }
+
+  it('uses controller cancellation only for saved ordered calls and preserves distinct unknown-effect receipts', async () => {
+    const f = await cancelledFixture();
+    await expect(appendConversationMessage(f.db, f.task, 'ordinary-cancelled', result('a'))).rejects.toThrow('gate');
+    await closeCancelledConversationCalls(f.db, f.task, f.scope, 'Cancelled');
+    const snapshot = (await readConversation(f.db, f.task, { archive: true }))!;
+    expect(snapshot.calls.every(call => call.result_sequence !== null)).toBe(true);
+    expect(new Set(snapshot.calls.map(call => call.operation_id)).size).toBe(2);
+    const operations = await f.db.prepare('select id,status,output_json from agent_task_operations order by turn').all<{id:string;status:string;output_json:string}>();
+    expect(operations.results[0]).toMatchObject({ id: f.operation.id, status: 'unknown' });
+    expect(JSON.parse(operations.results[1].output_json)).toMatchObject({ executed: false, effects: 'none' });
+    const firstMessage = snapshot.messages[2].message;
+    if (firstMessage.role !== 'toolResult') throw new Error('Expected persisted tool result');
+    const firstResult = firstMessage.content[0];
+    expect(firstResult.type === 'text' && JSON.parse(firstResult.text)).toMatchObject({ effects: 'unknown', reconciliation_required: true });
+    await closeCancelledConversationCalls(f.db, f.task, f.scope, 'Cancelled');
+    expect((await readConversation(f.db, f.task, { archive: true }))!.messages).toHaveLength(4);
+  });
+
+  it.each(['token', 'expired', 'controller-epoch', 'target-epoch', 'workspace', 'site', 'ancestor', 'not-cancel'] as const)
+    ('rejects an invalid cancellation scope before any call or operation is changed (%s)', async invalid => {
+      const f = await cancelledFixture();
+      const target = { ...f.task };
+      if (invalid === 'token') f.scope.token = 'forged';
+      if (invalid === 'expired') f.state.cancellation.leaseUntil = new Date(0).toISOString();
+      if (invalid === 'controller-epoch') f.state.cancellation.controller.epoch++;
+      if (invalid === 'target-epoch') target.epoch++;
+      if (invalid === 'workspace') target.workspace_id = 'another-workspace';
+      if (invalid === 'site') target.site_id = 'another-site';
+      if (invalid === 'ancestor') {
+        const other = await attachTask(f.db, f.run('unrelated', 'unrelated'), definition);
+        await stopTask(f.db, other.active_run_id, 'cancelled', 'Unrelated cancellation');
+        await f.db.prepare('update agent_tasks set root_task_id=? where id=?').bind(f.task.root_task_id,other.id).run();
+        f.state.cancellation.controller = { id: other.id, active_run_id: other.active_run_id, epoch: other.epoch, workspace_id: other.workspace_id, site_id: other.site_id, root_task_id: f.task.root_task_id };
+        await f.db.prepare('update agent_runtime_commands set task_id=? where command_id=?').bind(other.id, 'cancel').run();
+      }
+      await f.db.prepare('update agent_runtime_commands set predecessor_json=?,command=? where command_id=?')
+        .bind(JSON.stringify(f.state), invalid === 'not-cancel' ? 'resume' : 'cancel', 'cancel').run();
+      const before = await f.db.prepare('select id,status,output_json from agent_task_operations').all();
+      await expect(closeCancelledConversationCalls(f.db, target, f.scope, 'Cancelled')).rejects.toThrow('scope');
+      expect((await f.db.prepare('select id,status,output_json from agent_task_operations').all()).results).toEqual(before.results);
+      expect((await readConversation(f.db, f.task, { archive: true }))!.messages).toHaveLength(2);
+    });
+
+  it('cannot turn an old execution database into a cancellation controller', async () => {
+    const f = await cancelledFixture();
+    const scoped = executionDatabase(f.db, { taskId: f.task.id, runId: f.task.active_run_id, epoch: f.task.epoch, executionId: 'old-execution' });
+    await expect(closeCancelledConversationCalls(scoped, f.task, f.scope, 'Cancelled')).rejects.toThrow('controller authority');
+  });
   it('keeps a tool receipt once while preserving the model result and replay identity', async () => {
     const { db, task } = await fixture();
     const operation = await bindConversationOperation(db, task, 'a', {});

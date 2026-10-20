@@ -5,6 +5,11 @@ import { fileURLToPath } from 'node:url';
 
 const policyPath = 'scripts/public-distribution-policy.json';
 const policy = JSON.parse(readFileSync(new URL('./public-distribution-policy.json', import.meta.url), 'utf8'));
+const exportPolicy = {
+  ...policy,
+  forbiddenPaths: [...policy.forbiddenPaths, ...policy.exportOnlyPaths],
+  forbiddenContent: [...policy.forbiddenContent, ...policy.exportOnlyContent],
+};
 
 /** This is a distribution boundary check; credential detection runs separately with Gitleaks. */
 export function boundaryIssues(path, contents, rules = policy, privateMarkers = []) {
@@ -27,13 +32,14 @@ export function boundaryIssues(path, contents, rules = policy, privateMarkers = 
   return issues;
 }
 
-export function checkPublicBoundary(root, history = false, privateMarkers = []) {
+export function checkPublicBoundary(root, history = false, privateMarkers = [], maintainerExport = history) {
+  const rules = maintainerExport ? exportPolicy : policy;
   const git = args => execFileSync('git', args, { cwd: root, maxBuffer: 128 * 1024 * 1024 });
   const failures = [];
   let scanned = 0;
   const inspect = (path, contents, revision) => {
     scanned++;
-    for (const issue of boundaryIssues(path, contents, policy, privateMarkers)) failures.push({ path, issue, ...(revision ? { revision } : {}) });
+    for (const issue of boundaryIssues(path, contents, rules, privateMarkers)) failures.push({ path, issue, ...(revision ? { revision } : {}) });
   };
   if (history) {
     const seen = new Set();
@@ -57,7 +63,8 @@ export function checkPublicBoundary(root, history = false, privateMarkers = []) 
   return { scanned, failures };
 }
 
-export function checkArtifacts(directory, privateMarkers = []) {
+export function checkArtifacts(directory, privateMarkers = [], maintainerExport = false) {
+  const rules = maintainerExport ? exportPolicy : policy;
   if (!existsSync(directory)) throw new Error('Build artifacts do not exist; build before checking artifacts');
   if (!lstatSync(directory).isDirectory() || lstatSync(directory).isSymbolicLink()) throw new Error('Build artifacts must be a regular directory');
   const failures = [];
@@ -72,7 +79,7 @@ export function checkArtifacts(directory, privateMarkers = []) {
       // Public vendor domains in upstream SDK compatibility code are not private
       // project adapters. Project source is still checked without this exception,
       // including source-map content below. Credential markers have no exception.
-      const artifactPolicy = { ...policy, forbiddenContent: policy.forbiddenContent.filter(value => !(policy.thirdPartyArtifactContent || []).includes(value)) };
+      const artifactPolicy = { ...rules, forbiddenContent: rules.forbiddenContent.filter(value => !(rules.thirdPartyArtifactContent || []).includes(value)) };
       for (const issue of boundaryIssues(name, bytes, artifactPolicy, privateMarkers)) failures.push({ path: name, issue });
       if (name.endsWith('.map')) {
         const map = JSON.parse(bytes.toString('utf8'));
@@ -80,7 +87,7 @@ export function checkArtifacts(directory, privateMarkers = []) {
           const source = map.sources[index].replaceAll('\\', '/');
           if (source.split('/').includes('node_modules') || typeof map.sourcesContent?.[index] !== 'string') continue;
           const projectPath = source.replace(/^(?:\.\.?\/)+/, '');
-          for (const issue of boundaryIssues(projectPath, Buffer.from(map.sourcesContent[index]), policy, privateMarkers)) failures.push({ path: name, source, issue });
+          for (const issue of boundaryIssues(projectPath, Buffer.from(map.sourcesContent[index]), rules, privateMarkers)) failures.push({ path: name, source, issue });
         }
       }
       if ((policy.forbiddenArtifactContent || []).some(value => bytes.includes(Buffer.from(value)))) failures.push({ path: name, issue: 'development demonstration in production artifact' });
@@ -98,7 +105,9 @@ if (resolve(process.argv[1] || '') === fileURLToPath(import.meta.url)) {
   const privateMarkers = markerPath ? JSON.parse(readFileSync(resolve(markerPath), 'utf8')) : [];
   if (!Array.isArray(privateMarkers) || privateMarkers.some(value => typeof value !== 'string' || value.length < 8)) throw new Error('Private markers must be a JSON array of nonempty identifiers with at least eight characters');
   const artifacts = valueAfter('--artifacts');
-  const result = artifacts ? checkArtifacts(resolve(artifacts), privateMarkers) : checkPublicBoundary(process.cwd(), args.includes('--history'), privateMarkers);
+  // Export policy is an explicit maintainer check, including when reviewing history.
+  const maintainerExport = args.includes('--export') || args.includes('--history');
+  const result = artifacts ? checkArtifacts(resolve(artifacts), privateMarkers, maintainerExport) : checkPublicBoundary(process.cwd(), args.includes('--history'), privateMarkers, maintainerExport);
   if (result.failures.length) {
     // Print paths and categories only; never print matched source or possible credentials.
     console.error(JSON.stringify(result, null, 2));

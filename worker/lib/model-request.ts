@@ -1,12 +1,12 @@
 import type { ResolvedModelProfile } from '../../shared/config/models';
-import { effectiveMaxOutputTokens, effectiveReasoning } from '../agent-runtime/model-registry';
+import { effectiveMaxOutputTokens, effectiveReasoning, type ReasoningEffort } from '../agent-runtime/model-registry';
 import { channelRequestBody } from './model-channel';
 
 export type ModelTextMessage = { role: 'system' | 'user' | 'assistant'; content: string };
 export type ModelTextOptions = {
   messages: ModelTextMessage[];
   maxTokens?: number;
-  reasoningEffort?: 'none' | 'minimal' | 'low' | 'medium' | 'high';
+  reasoningEffort?: ReasoningEffort;
   jsonSchema?: { name: string; schema: Record<string, unknown> };
   timeoutMs?: number;
 };
@@ -31,7 +31,7 @@ export class ModelHttpError extends Error {
 
 /** All non-streaming text consumers use the same protocol and credential resolution. */
 export async function requestModelText(profile: ResolvedModelProfile, options: ModelTextOptions): Promise<ModelTextResult> {
-  const effort = effectiveReasoning(options.reasoningEffort || 'none', profile);
+  const effort = effectiveReasoning(options.reasoningEffort ?? profile.reasoningEffort ?? 'none', profile);
   const maxTokens = options.maxTokens ? effectiveMaxOutputTokens(options.maxTokens, profile) : profile.maxOutputTokens;
   const system = options.messages.filter(message => message.role === 'system').map(message => message.content).join('\n\n');
   const messages = options.messages.filter(message => message.role !== 'system');
@@ -47,11 +47,13 @@ export async function requestModelText(profile: ResolvedModelProfile, options: M
     body = { model: profile.model, ...(system ? { system } : {}), messages, max_tokens: maxTokens,
       ...(schema ? { output_config: { format: { type: 'json_schema', schema: schema.schema } } } : {}),
     };
-    if (effort && profile.compatibility?.forceAdaptiveThinking) {
+    if (effort && effort !== 'none' && profile.compatibility?.forceAdaptiveThinking) {
       body.thinking = { type: 'adaptive' };
       body.output_config = { ...(body.output_config as object || {}), effort: effort === 'minimal' ? 'low' : effort };
-    } else if (effort && profile.compatibility?.thinkingBudgetTokens) {
+    } else if (effort && effort !== 'none' && profile.compatibility?.thinkingBudgetTokens) {
       body.thinking = { type: 'enabled', budget_tokens: profile.compatibility.thinkingBudgetTokens };
+    } else if (effort === 'none') {
+      body.thinking = { type: 'disabled' };
     }
   } else if (profile.protocol === 'openai-responses') {
     path = '/responses';
@@ -65,8 +67,8 @@ export async function requestModelText(profile: ResolvedModelProfile, options: M
     path = '/chat/completions';
     headers.set('Authorization', `Bearer ${profile.apiKey}`);
     body = { model: profile.model, messages: options.messages, max_tokens: maxTokens,
-      ...(effort && profile.supportedParameters.includes('reasoning') ? { reasoning: { effort } } : {}),
-      ...(effort && !profile.supportedParameters.includes('reasoning') && profile.supportedParameters.includes('reasoning_effort') ? { reasoning_effort: effort } : {}),
+      ...(effort && profile.compatibility?.thinkingFormat === 'openrouter' ? { reasoning: { effort } } : {}),
+      ...(effort && effort !== 'none' && profile.compatibility?.thinkingFormat !== 'openrouter' && profile.compatibility?.supportsReasoningEffort ? { reasoning_effort: effort } : {}),
       ...(schema ? { response_format: { type: 'json_schema', json_schema: { name: schema.name, strict: true, schema: schema.schema } } } : {}),
     };
   }

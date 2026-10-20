@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 
 const original = resolve(dirname(fileURLToPath(import.meta.url)), 'sync-public-core.mjs');
 test('synchronizes shared changes and deletions while preserving private files and refusing conflicting edits', () => {
@@ -35,6 +36,7 @@ test('synchronizes shared changes and deletions while preserving private files a
     const manifest = JSON.parse(readFileSync(manifestPath));
     assert.equal(manifest.version, 2);
     assert.ok(manifest.files.every(file => typeof file.path === 'string' && /^[a-f0-9]{64}$/.test(file.sha256)));
+    assert.equal(existsSync(resolve(target, 'scripts/sync-public-core.mjs')), false);
     writeFileSync(manifestPath, JSON.stringify({ ...manifest, version: 1, files: Object.fromEntries(manifest.files.map(file => [file.path, file.sha256])) }));
     assert.equal(invoke('--check').status, 0, 'Legacy digest maps retain conflict protection');
     assert.equal(invoke('--apply').status, 0);
@@ -66,6 +68,54 @@ test('synchronizes shared changes and deletions while preserving private files a
     const reverse = invoke('--apply');
     assert.notEqual(reverse.status, 0);
     assert.match(reverse.stderr, /upstream checkout/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('retires unchanged legacy tooling and commands while protecting modified copies and custom commands', () => {
+  const root = mkdtempSync(resolve(tmpdir(), 'core-sync-retirement-'));
+  const source = resolve(root, 'upstream'), target = resolve(root, 'downstream');
+  const write = (base, path, value) => { const file = resolve(base, path); mkdirSync(dirname(file), { recursive: true }); writeFileSync(file, value); };
+  const git = (cwd, ...args) => execFileSync('git', args, { cwd, stdio: 'pipe' });
+  const commands = {
+    'core:sync': 'node scripts/sync-public-core.mjs',
+    'test:sync': 'node --test scripts/sync-public-core.test.mjs',
+    'verify:strategy:workflow:local': 'node scripts/verify-strategy-workflow-local.mjs',
+  };
+  const legacyFiles = ['scripts/sync-public-core.mjs', 'scripts/sync-public-core.test.mjs'];
+  try {
+    for (const base of [source, target]) {
+      mkdirSync(base);
+      git(base, 'init', '--quiet', '--initial-branch=main');
+      git(base, 'remote', 'add', 'origin', 'https://example.invalid/fixture.git');
+      write(base, 'package.json', JSON.stringify({ scripts: commands, dependencies: {}, devDependencies: {}, engines: {}, overrides: {} }, null, 2) + '\n');
+      write(base, 'worker/core.ts', 'export const version = 1;\n');
+      git(base, 'add', '.');
+      git(base, '-c', 'user.name=Core Sync Test', '-c', 'user.email=test@example.invalid', 'commit', '--quiet', '--no-gpg-sign', '-m', 'Initialize isolated test');
+    }
+    write(source, legacyFiles[0], readFileSync(original));
+    const legacyContents = 'legacy synchronized tool\n';
+    for (const path of legacyFiles) write(target, path, legacyContents);
+    const manifestPath = resolve(target, '.public-core-sync.json');
+    const manifest = JSON.stringify({ version: 2, files: legacyFiles.map(path => ({ path, sha256: createHash('sha256').update(legacyContents).digest('hex') })) });
+    writeFileSync(manifestPath, manifest);
+    const invoke = (...flags) => spawnSync(process.execPath, [resolve(source, legacyFiles[0]), '--target', target, ...flags], { encoding: 'utf8' });
+
+    write(target, legacyFiles[1], 'downstream customizations\n');
+    assert.notEqual(invoke('--apply').status, 0);
+    assert.equal(readFileSync(resolve(target, legacyFiles[1]), 'utf8'), 'downstream customizations\n');
+    assert.equal(readFileSync(resolve(target, legacyFiles[0]), 'utf8'), legacyContents);
+    assert.equal(readFileSync(manifestPath, 'utf8'), manifest);
+    assert.deepEqual(JSON.parse(readFileSync(resolve(target, 'package.json'))).scripts, commands);
+
+    write(target, legacyFiles[1], legacyContents);
+    const customized = JSON.parse(readFileSync(resolve(target, 'package.json')));
+    customized.scripts['test:sync'] = 'node custom-downstream-check.mjs';
+    write(target, 'package.json', JSON.stringify(customized, null, 2) + '\n');
+    assert.equal(invoke('--apply').status, 0);
+    for (const path of legacyFiles) assert.equal(existsSync(resolve(target, path)), false);
+    assert.deepEqual(JSON.parse(readFileSync(resolve(target, 'package.json'))).scripts, { 'test:sync': 'node custom-downstream-check.mjs' });
+    assert.ok(JSON.parse(readFileSync(manifestPath)).files.every(file => !legacyFiles.includes(file.path)));
+    assert.equal(invoke('--check').status, 0);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

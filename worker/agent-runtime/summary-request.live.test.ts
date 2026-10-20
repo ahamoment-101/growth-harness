@@ -1,6 +1,5 @@
 // Opt-in synthetic provider request. No business tools or production data writes.
-// @ts-ignore Node test API.
-import { readFileSync } from 'node:fs';
+import { localConfiguration } from '../../scripts/configuration';
 import { expect, it } from 'vitest';
 import type { StreamFn } from '@earendil-works/pi-agent-core';
 import { taskTestDb } from './task-test-db';
@@ -15,11 +14,7 @@ import type { RuntimeAgentEnv, RuntimeWorkflowStep } from './env';
 // @ts-ignore Node test environment.
 const enabled = process.env.SUMMARY_LIVE_VERIFY === '1';
 it.skipIf(!enabled)('persists a real complete summary with exact references and reuses the response', async () => {
-  const vars: Record<string, string> = {};
-  for (const line of readFileSync('.dev.vars', 'utf8').split('\n')) {
-    const match = line.match(/^([A-Z][A-Z0-9_]*)=(.*)$/);
-    if (match) vars[match[1]] = match[2].trim().replace(/^['"]|['"]$/g, '');
-  }
+  const { env: vars } = localConfiguration();
   const f = taskTestDb();
   const task = await attachTask(f.db, f.run(), agentDefinition('strategy_research'));
   const env = { ...vars, DB: f.db } as RuntimeAgentEnv;

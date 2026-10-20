@@ -7,6 +7,7 @@ import type { AssistantMessage, Message } from '@earendil-works/pi-ai';
 import { hydrateTaskOperation, taskDataJson, taskJson, TaskStateError, type AgentTask, type TaskOperation } from './task-store';
 import { estimateTextTokens } from './request-capacity';
 import { capacityMessage, compactionMessage, conversationMessage, failedModelMessage, modelHistoryMessage } from './message-view';
+import { executionContext } from './execution-context';
 
 type StoredMessage = { role: Message['role']; sequence: number; message_key: string; message_json: string };
 export type ConversationCall = {
@@ -27,6 +28,28 @@ const activeGate = `exists(select 1 from agent_tasks t join agent_tasks root on 
   where t.id = ? and t.active_run_id = ? and t.epoch = ? and t.status = 'running'
   and t.outcome != 'execution_recovering' and root.status in ('running','waiting','paused'))`;
 const bindings = (task: AgentTask) => [task.id, task.active_run_id, task.epoch];
+
+/** A controller claim on an already persisted cancel command, never execution authority. */
+export type TaskCancellationScope = Readonly<{ commandId: string; token: string }>;
+function cancellationGate(task: AgentTask, scope: TaskCancellationScope) {
+  return {
+    sql: `exists(select 1 from agent_runtime_commands cmd join agent_tasks controller on controller.id=cmd.task_id
+      join agent_tasks t on t.id=? and t.active_run_id=? and t.epoch=? and t.workspace_id=? and t.site_id=? and t.root_task_id=?
+      where cmd.command_id=? and cmd.command='cancel' and controller.status='cancelled' and t.status='cancelled'
+      and controller.active_run_id=json_extract(cmd.predecessor_json,'$.cancellation.controller.active_run_id')
+      and controller.epoch=json_extract(cmd.predecessor_json,'$.cancellation.controller.epoch')
+      and controller.workspace_id=json_extract(cmd.predecessor_json,'$.cancellation.controller.workspace_id')
+      and controller.site_id=json_extract(cmd.predecessor_json,'$.cancellation.controller.site_id')
+      and controller.root_task_id=json_extract(cmd.predecessor_json,'$.cancellation.controller.root_task_id')
+      and json_extract(cmd.predecessor_json,'$.cancellation.token')=?
+      and json_extract(cmd.predecessor_json,'$.cancellation.leaseUntil')>?
+      and t.id in (with recursive tree(id) as (select controller.id union all
+        select child.id from agent_tasks child join tree p on child.parent_task_id=p.id
+        where child.workspace_id=controller.workspace_id and child.site_id=controller.site_id and child.root_task_id=controller.root_task_id)
+        select id from tree))`,
+    values: [...bindings(task), task.workspace_id, task.site_id, task.root_task_id, scope.commandId, scope.token, new Date().toISOString()],
+  };
+}
 
 /** Count this task's model decisions, excluding tools and descendant model usage. */
 export async function taskDecisionTurns(db: D1Database, task: AgentTask): Promise<number> {
@@ -123,6 +146,11 @@ function comparable(message: Message): string {
 export async function appendConversationMessage(
   db: D1Database, task: AgentTask, key: string, message: Message, decisionKind: 'normal' | 'audit' = 'normal', publishProgress = false,
 ): Promise<number> {
+  return appendMessage(db, task, key, message, decisionKind, publishProgress);
+}
+async function appendMessage(
+  db: D1Database, task: AgentTask, key: string, message: Message, decisionKind: 'normal' | 'audit', publishProgress: boolean, cancellation?: TaskCancellationScope,
+): Promise<number> {
   if (!key) throw new TaskStateError('Conversation message identity is required');
   if (isAgentId(task.agent_id)) message = await toolResultView(message, agentDefinition(task.agent_id).toolResultViews, task.parameter_contract_version || 0);
   const encoded = await persistRuntimeJson(db, conversationMessage(message));
@@ -153,18 +181,19 @@ export async function appendConversationMessage(
   // Once a domain tool commits terminal state, only results for already saved calls may close
   // the transcript. This gate cannot authorize a new model response or business effect.
   const terminalResultGate = message.role === 'toolResult' ? ` or exists(select 1 from agent_tasks t
-    where t.id = ? and t.active_run_id = ? and t.epoch = ? and t.status in ('completed','waiting','paused','cancelled')
+    where t.id = ? and t.active_run_id = ? and t.epoch = ? and t.status in ('completed','waiting','paused')
     and exists(select 1 from agent_task_operations o where o.id = t.last_operation_id and o.task_id = t.id and o.status = 'succeeded')
     and exists(select 1 from agent_conversation_calls c where c.task_id = t.id and c.call_id = ? and c.result_sequence is null))` : '';
   const terminalBindings = message.role === 'toolResult' ? [...bindings(task), message.toolCallId] : [];
+  const gate = cancellation ? cancellationGate(task, cancellation) : { sql: `${activeGate}${terminalResultGate}`, values: [...bindings(task), ...terminalBindings] };
   const insertedGate = `exists(select 1 from agent_conversation_messages where task_id = ? and sequence = ? and message_key = ? and message_json = ?)`;
   const publicText = publishProgress ? publicWorkText(message) : '';
   const result = await db.batch([
     db.prepare(`insert into agent_conversation_messages(task_id,sequence,message_key,role,message_json,created_at,decision_kind)
-      select ?,?,?,?,?,?,? where (${activeGate}${terminalResultGate})
+      select ?,?,?,?,?,?,? where (${gate.sql})
       and exists(select 1 from agent_conversations where task_id = ?)
       and (select coalesce(max(sequence),0) from agent_conversation_messages where task_id = ?) = ?`)
-      .bind(task.id, sequence, key, message.role, encoded, new Date().toISOString(), decisionKind, ...bindings(task), ...terminalBindings, task.id, task.id, sequence - 1),
+      .bind(task.id, sequence, key, message.role, encoded, new Date().toISOString(), decisionKind, ...gate.values, task.id, task.id, sequence - 1),
     ...(message.role === 'assistant' && decisionKind === 'normal' && !['error','aborted'].includes(message.stopReason) ? [
       db.prepare(`update agent_conversations set normal_decisions=normal_decisions+1 where task_id=? and changes()=1 and ${insertedGate}`)
         .bind(task.id, task.id, sequence, key, encoded),
@@ -228,25 +257,32 @@ export async function bindConversationOperation(
 /** Pi may reject a call before invoking its executor. Those calls still need an
  * operation receipt, including calls skipped after a terminal tool in the batch. */
 export async function recordConversationRejection(db: D1Database, task: AgentTask, callId: string, result: Message): Promise<void> {
+  return recordRejection(db, task, callId, result);
+}
+async function recordRejection(db: D1Database, task: AgentTask, callId: string, result: Message, cancellation?: TaskCancellationScope): Promise<void> {
   const existing = await db.prepare('select c.operation_id,m.message_json from agent_conversation_calls c join agent_conversation_messages m on m.task_id=c.task_id and m.sequence=c.assistant_sequence where c.task_id=? and c.call_id=?')
     .bind(task.id, callId).first<{ operation_id: string | null; message_json: string }>();
   if (!existing || existing.operation_id) return;
   const message = await readRuntimeJson<AssistantMessage>(db, existing.message_json);
   const call = message.content.find(part => part.type === 'toolCall' && part.id === callId);
-  const id = `${task.id}:${task.next_turn}`;
+  // Cancellation can leave an earlier running operation unresolved. Its turn
+  // and unknown effects must never become a receipt for a later skipped call.
+  const turn = cancellation ? Math.max(task.next_turn, Number(await db.prepare('select coalesce(max(turn),0)+1 as turn from agent_task_operations where task_id=?').bind(task.id).first<number>('turn'))) : task.next_turn;
+  const id = `${task.id}:${turn}`;
   const at = new Date().toISOString();
-  const gate = `exists(select 1 from agent_tasks where id=? and active_run_id=? and epoch=? and next_turn=?)`;
-  const values = [task.id, task.active_run_id, task.epoch, task.next_turn];
+  const scope = cancellation ? cancellationGate(task, cancellation) : null;
+  const gate = `exists(select 1 from agent_tasks where id=? and active_run_id=? and epoch=? and next_turn=?)${scope ? ` and ${scope.sql}` : ''}`;
+  const values = [task.id, task.active_run_id, task.epoch, task.next_turn, ...scope?.values || []];
   await db.batch([
     db.prepare(`insert or ignore into agent_task_operations(id,task_id,turn,status,context_json,action_json,output_json,error,created_at,updated_at)
       select ?,?,?,'failed','{}',?,?,'Call rejected or not executed',?,?
       from agent_conversation_calls c where c.task_id=? and c.call_id=? and c.operation_id is null and ${gate}`)
-      .bind(id, task.id, task.next_turn, taskDataJson(call?.type === 'toolCall' ? { name: call.name, input: call.arguments, call_id: callId } : {}), taskDataJson({ executed: false, effects: 'none', result }), at, at, task.id, callId, ...values),
+      .bind(id, task.id, turn, taskDataJson(call?.type === 'toolCall' ? { name: call.name, input: call.arguments, call_id: callId } : {}), taskDataJson({ executed: false, effects: 'none', result }), at, at, task.id, callId, ...values),
     db.prepare(`update agent_conversation_calls set operation_id=? where task_id=? and call_id=? and operation_id is null
       and exists(select 1 from agent_task_operations where id=?) and ${gate}`).bind(id, task.id, callId, id, ...values),
-    db.prepare(`update agent_tasks set next_turn=next_turn+1 where id=? and ${gate}
+    db.prepare(`update agent_tasks set next_turn=? where id=? and ${gate}
       and exists(select 1 from agent_conversation_calls where task_id=? and call_id=? and operation_id=?)`)
-      .bind(task.id, ...values, task.id, callId, id),
+      .bind(turn + 1, task.id, ...values, task.id, callId, id),
   ]);
 }
 
@@ -273,15 +309,40 @@ export async function conversationInitialContext<T = Record<string, unknown>>(db
 
 export async function closePendingConversationCalls(db: D1Database, runId: string, reason: string): Promise<void> {
   const { taskForRun } = await import('./task-store');
+  const task = await taskForRun(db, runId);
+  if (!task) throw new TaskStateError('Task does not exist');
+  return closeCalls(db, task, reason);
+}
+
+/** Only the cancel controller may close saved calls after the cancellation barrier. */
+export async function closeCancelledConversationCalls(db: D1Database, task: AgentTask, scope: TaskCancellationScope, reason: string): Promise<void> {
+  if (executionContext(db)) throw new TaskStateError('Cancellation cleanup requires controller authority');
+  const gate = cancellationGate(task, scope);
+  if (!await db.prepare(`select 1 where ${gate.sql}`).bind(...gate.values).first()) throw new TaskStateError('Cancellation cleanup scope is stale or unrelated');
+  return closeCalls(db, task, reason, scope);
+}
+
+async function closeCalls(db: D1Database, task: AgentTask, reason: string, cancellation?: TaskCancellationScope): Promise<void> {
   const rows = await db.prepare(`select c.call_id,c.tool_name,o.status,o.output_json from agent_conversation_calls c
     left join agent_task_operations o on o.id=c.operation_id join agent_tasks t on t.id=c.task_id
     where t.active_run_id=? and c.result_sequence is null order by c.assistant_sequence,c.call_index`)
-    .bind(runId).all<{call_id:string;tool_name:string;status:string|null;output_json:string|null}>();
+    .bind(task.active_run_id).all<{call_id:string;tool_name:string;status:string|null;output_json:string|null}>();
   for (const row of rows.results) {
-    const task = (await taskForRun(db, runId))!;
-    const output = row.status === 'succeeded' ? await readRuntimeJson(db, row.output_json || '{}') : { error: reason, executed: false, effects: row.status === 'running' || row.status === 'unknown' ? 'unknown' : 'none' };
+    const current = { ...task, next_turn: (await db.prepare('select next_turn from agent_tasks where id=?').bind(task.id).first<number>('next_turn'))! };
+    if (cancellation && row.status === 'running') {
+      const gate = cancellationGate(current, cancellation);
+      await db.prepare(`update agent_task_operations set status='unknown',updated_at=? where status='running'
+        and id=(select operation_id from agent_conversation_calls where task_id=? and call_id=? and result_sequence is null) and ${gate.sql}`)
+        .bind(new Date().toISOString(), task.id, row.call_id, ...gate.values).run();
+    }
+    const saved = await readRuntimeJson<unknown>(db, row.output_json || '{}');
+    const hasReceipt = saved !== null && (typeof saved !== 'object' || Object.keys(saved).length > 0);
+    const output = row.status === 'succeeded' || (row.status === 'failed' && hasReceipt) ? saved
+      : row.status === 'running' || row.status === 'unknown' || row.status === 'failed'
+        ? { error: reason, effects: 'unknown', reconciliation_required: true, ...(hasReceipt ? { receipt: saved } : {}) }
+        : { error: reason, executed: false, effects: 'none' };
     const message: Message = { role:'toolResult', toolCallId:row.call_id, toolName:row.tool_name, timestamp:Date.now(), isError:row.status!=='succeeded', content:[{type:'text',text:taskDataJson(output)}], details:output };
-    await recordConversationRejection(db, task, row.call_id, message);
-    await appendConversationMessage(db, task, `tool:${row.call_id}`, message);
+    await recordRejection(db, current, row.call_id, message, cancellation);
+    await appendMessage(db, current, `tool:${row.call_id}`, message, 'normal', false, cancellation);
   }
 }

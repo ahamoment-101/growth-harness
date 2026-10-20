@@ -1,6 +1,5 @@
 // Opt-in, bounded real-provider protocol probe. Synthetic input; no business or remote database writes.
-// @ts-ignore Test-only Node API.
-import { readFileSync } from 'node:fs';
+import { localConfiguration } from '../../scripts/configuration';
 import { expect, it } from 'vitest';
 import { runAgentLoopContinue, type AgentContext } from '@earendil-works/pi-agent-core';
 import type { Message } from '@earendil-works/pi-ai';
@@ -13,11 +12,7 @@ import { resolveModelProfile } from './model-registry';
 const enabled = process.env.CONVERSATION_LIVE_VERIFY === '1';
 
 it.skipIf(!enabled)('uses the real provider with production strategy reference selectors', async () => {
-  const vars: Record<string, string> = {};
-  for (const line of readFileSync('.dev.vars', 'utf8').split('\n')) {
-    const match = line.match(/^([A-Z][A-Z0-9_]*)=(.*)$/);
-    if (match) vars[match[1]] = match[2].trim().replace(/^['"]|['"]$/g, '');
-  }
+  const { env: vars } = localConfiguration();
   const requests: Array<Record<string, any>> = [];
   const channel = conversationChannel({ ...resolveModelProfile(vars, 'strategy_research'), maxOutputTokens: 1024 }, async (url, init) => {
       if (requests.length >= 4) throw new Error('Live probe request budget exhausted');

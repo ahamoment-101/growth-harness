@@ -1,8 +1,6 @@
 {
   "forbiddenPaths": [
     "worker/private-models/",
-    "docs/provider-history/",
-    "docs/acceptance/",
     "docs/internal/",
     "docs/internal-archive/",
     "prototypes/",
@@ -15,11 +13,11 @@
     ".wrangler/"
   ],
   "forbiddenExtensions": [".db", ".sqlite", ".sqlite3", ".dump", ".pem", ".key", ".p12", ".pfx", ".bundle"],
+  "exportOnlyPaths": ["docs/provider-history/", "docs/acceptance/"],
   "thirdPartyArtifactContent": ["bigmodel.cn"],
   "forbiddenArtifactContent": ["keyword-library-source", "UI mockup · Static data", "The interface is displayed with sample data"],
-  "forbiddenContent": [
-    "AGENTSFLARE_API_KEY",
-    "GLM_API_KEY",
+  "forbiddenContent": ["AGENTSFLARE_API_KEY", "GLM_API_KEY"],
+  "exportOnlyContent": [
     "agentsflare",
     "bigmodel.cn",
     "glm-chat",

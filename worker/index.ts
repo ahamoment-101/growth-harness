@@ -23,7 +23,6 @@ import { markSeen, markAllHistorySeen } from './team-status';
 import { readAgentPanel, readAgentPanelTask } from './team-status/panel';
 import { executeTaskCommand, recoverTaskCommand } from './agent-runtime/task-commands';
 import examplePack from '../packs/example.json';
-import { handleDevelopmentRequest } from './lib/development-routes';
 import { serveHosted, serveLive } from './blog/live';
 import { ownsArticleUrl } from './blog/url-history';
 import { mergeSeoIdentity } from './blog/seo';
@@ -107,8 +106,6 @@ import {
   sourceVersionOf,
 } from './lib/localize';
 import { getAgentByName, routeAgentRequest } from 'agents';
-import { AgentRuntimeProbe, type StartDurableOnlyProbeInput, type StartRuntimeProbeInput } from './agent-runtime/agent';
-import { AgentRuntimeProbeWorkflow } from './agent-runtime/workflow';
 import { isAgentId, parseRuntimeAgentName, runtimeAgentName } from './agent-runtime/definitions';
 import { AgentShell } from './agent-runtime/shell';
 import { SiteRoom } from './site-room/room';
@@ -145,25 +142,12 @@ import {
   authenticateRequest,
 } from './lib/auth/session';
 
-export { AgentRuntimeProbe, AgentRuntimeProbeWorkflow, AgentRuntimeWorkflow, AgentShell, LocalizeWorkflow, PublishWorkflow, SiteRoom };
+export { AgentRuntimeWorkflow, AgentShell, LocalizeWorkflow, PublishWorkflow, SiteRoom };
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     try {
       const path = new URL(request.url).pathname;
-      if (path.startsWith('/agents/agent-runtime-probe/')) {
-        if (env.AGENT_RUNTIME_PROBE_ENABLED !== 'true') return json({ error: 'not found' }, 404);
-        const originError = agentTransportOriginError(request);
-        if (originError) return json({ error: originError }, 403);
-        const principal = await authenticateRequest(env.DB, request);
-        if (!principal) return json({ error: 'authentication required' }, 401);
-        const parsed = parseRuntimeAgentName(path.slice('/agents/agent-runtime-probe/'.length).split('/')[0]);
-        if (!parsed || parsed.workspaceId !== principal.workspace.id || !await getWorkspaceSite(env.DB, principal.workspace.id, parsed.siteId)) {
-          return json({ error: 'not found' }, 404);
-        }
-        const agentResponse = await routeAgentRequest(request, env);
-        if (agentResponse) return agentResponse;
-      }
       if (path.startsWith('/agents/agent-shell/')) {
         if (env.AGENT_RUNTIME_ENABLED !== 'true') return json({ error: 'not found' }, 404);
         const originError = agentTransportOriginError(request);
@@ -503,57 +487,6 @@ async function handle(request: Request, env: Env, ctx: ExecutionContext): Promis
     if (!site || !isAgentId(agentId)) return json({ error: 'not found' }, 404);
     if (method === 'GET') return json({ runs: await listAgentRuns(env.DB, workspaceId, siteId, agentId) });
     return json({ error: 'method not supported' }, 405);
-  }
-
-  if (path === '/api/agent-runtime/probe') {
-    if (!principal) return json({ error: 'authentication required' }, 401);
-    if (env.AGENT_RUNTIME_PROBE_ENABLED !== 'true') return json({ error: 'agent runtime probe is disabled' }, 503);
-    const body = method === 'POST' ? await readJson(request) : Object.fromEntries(url.searchParams);
-    const siteId = str(body.site_id);
-    const agentId = body.agent_id;
-    if (!siteId || !isAgentId(agentId)) return json({ error: 'site_id or agent_id is invalid' }, 400);
-    const site = await ownedSite(siteId);
-    if (!site) return json({ error: 'site not found' }, 404);
-    const agentName = runtimeAgentName(workspaceId, siteId, agentId);
-    const agent = await getAgentByName(env.AGENT_RUNTIME_PROBE, agentName);
-    try {
-      if (method === 'GET') {
-        return json({ agent_name: agentName, state: await agent.getSnapshot() });
-      }
-      if (method !== 'POST') return json({ error: 'method not supported' }, 405);
-
-      if (body.mode === 'scheduled_runtime') {
-        if (env.AGENT_RUNTIME_ENABLED !== 'true') return json({ error: 'Agent Runtime is disabled' }, 503);
-        const scheduleKey = `runtime_synthetic:${new Date().toISOString().slice(0, 16)}`;
-        const run = await startRuntimeRun(env, {
-          workspaceId, siteId, agentId: 'runtime_synthetic', trigger: 'cron', scheduleKey,
-          summary: { scenario: 'default', verification: 'scheduled_runtime' },
-        });
-        return json({ run, schedule_key: scheduleKey }, 202);
-      }
-
-      if (body.mode === 'durable_only') {
-        const input: StartDurableOnlyProbeInput = { runId: newId(), agentId, siteId: site.id };
-        return json({ agent_name: agentName, state: await agent.startDurableOnlyProbe(input) }, 202);
-      }
-
-      const input: StartRuntimeProbeInput = {
-        runId: newId(),
-        agentId,
-        site: {
-          id: site.id,
-          name: site.name,
-          domain: site.domain,
-          productBrief: site.product_brief,
-          researchSeedTerms: parseStringList(site.research_seed_terms_json),
-          competitorDomains: parseStringList(site.competitor_domains_json),
-        },
-      };
-      const state = await agent.startProbe(input);
-      return json({ agent_name: agentName, state }, state.status === 'failed' ? 502 : 202);
-    } finally {
-      disposeRpcResource(agent);
-    }
   }
 
   // ─── Search Console (GSC) ───────────────────────────────────────────────────
@@ -1370,9 +1303,6 @@ async function handle(request: Request, env: Env, ctx: ExecutionContext): Promis
       return json({ ok: true, parent_run_id: run.id, job: await getJobForWorkspace(env.DB, workspaceId, jobId) });
     }
   }
-
-  const developmentResponse = await handleDevelopmentRequest(request, env, workspaceId);
-  if (developmentResponse) return developmentResponse;
 
   if (path.startsWith('/api/')) return json({ error: 'not found' }, 404);
   if (env.ASSETS) return env.ASSETS.fetch(request);

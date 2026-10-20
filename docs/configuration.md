@@ -2,7 +2,7 @@
 
 ## Configuration Entry Points and Verification
 
-`wrangler.jsonc` stores Cloudflare resources and public deployment settings; it contains no passwords, client secrets, or API keys, nor does it bind maintainer production resources. `.dev.vars` contains local configuration and secrets, created from samples or by running `npm run setup`. The local check priority is `.dev.vars` > Wrangler vars; production does not read local files, with public settings placed in Wrangler vars and sensitive values uploaded as Cloudflare Secrets.
+`wrangler.jsonc` stores Cloudflare resources and public settings. [`shared/config/agent-models.json`](../shared/config/agent-models.json) stores bundled model defaults, Agent assignments and reasoning strengths. Put credentials in ignored `.dev.vars` locally and Cloudflare Secrets in production. `npm run setup` prepares the local file; it does not copy a second model registry. Local `.dev.vars` entries override Wrangler vars, while production never reads this file. File-based configuration works on macOS, Linux and Windows without shell-specific environment commands.
 
 `npm run config:check` validates login and configuration structure. When optional services or model keys are missing, it indicates that the corresponding capability is unconfigured; adding `--require-models` requires all provider keys actually referenced by current models to be present. `npm run config:check:deploy` reads production vars and remote secret **names** without treating local keys as configured online, and verifies that existing admins have at least one bound login method that remains enabled. The check does not verify provider permissions, balances, or network connectivity.
 
@@ -31,15 +31,16 @@ The public distribution defaults to OpenRouter. See [model connections and proto
 
 | Field | Service and Purpose | Required Condition |
 | --- | --- | --- |
-| `MODEL_REGISTRY` | Non-secret connections, model capabilities and Agent assignments | Required for model calls; login and site setup remain available without it |
+| `shared/config/agent-models.json` | Bundled connections, model capabilities, Agent assignments and reasoning strengths | Already supplied; defaults require only an OpenRouter model key |
+| `MODEL_REGISTRY` | Optional complete replacement for the bundled model configuration | Only for deployment-specific or local overrides |
 | `OPENROUTER_API_KEY` | OpenRouter account credential | Required only when a selected profile uses the sample `openrouter` connection |
 | `OPENAI_API_KEY` | OpenAI account credential | Required only when a selected profile uses the sample `openai` connection |
 | `ANTHROPIC_API_KEY` | Anthropic account credential | Required only when a selected profile uses the sample `anthropic` connection |
 | Custom name referenced by `apiKeyEnv` | Credential for your own compatible endpoint | Required only for selected connections; CLI checks and secret upload read the registry dynamically |
 
-Keys belong in ignored `.dev.vars` locally and Cloudflare Secrets in deployment. They never belong in `MODEL_REGISTRY`, source control, frontend settings, or logs. Only keys referenced by the default and per-Agent profiles are required. Selecting a model does not prove the account has access or that the endpoint accepts its tool schema; verify the full writing workflow.
+Keys belong in ignored `.dev.vars` locally and Cloudflare Secrets in deployment. They never belong in `agent-models.json`, `MODEL_REGISTRY`, source control, frontend settings, or logs. Only keys referenced by the default and per-Agent profiles are required. Selecting a model does not prove the account has access or that the endpoint accepts its tool schema; verify the full writing workflow.
 
-An existing `.dev.vars` overrides the sample. Public installations require registry version 2; downstream distributions may register their own explicit migration. No credential is silently borrowed from another connection.
+For a local-only model selection, an optional `MODEL_REGISTRY` in `.dev.vars` must contain a complete version 2 registry as single-line JSON. Precedence is local override → Wrangler override → bundled JSON, with each override replacing the complete registry rather than merging individual fields. Remove a stale override to use the lower-priority configuration again, and restart the dev server after changes. No credential is silently borrowed from another connection.
 
 ## Optional Services
 
@@ -62,7 +63,3 @@ Webhook URLs, headers, and secrets are configured on each site configuration pag
 Startup checks report missing fields and remediation steps to developers. The Worker also validates login configuration to prevent accidentally exposing endpoints by bypassing the CLI. Standard users see incomplete configuration notices; permission denials, insufficient quota, and unsupported protocols are handled via original tool and Runtime mechanisms without the configuration module deciding strategy for Agents or faking success.
 
 Legacy `AI_GATEWAY_ACCOUNT_ID` and `AI_GATEWAY_NAME` are currently not read by model direct connection paths and do not need to be populated for open-source installations.
-
-## Development-only tools
-
-`DEV_TOOLS_ENABLED` defaults to `false`. Only the literal `true` enables `/api/dev/mock-ingest` and `/api/dev/seed-job`; they still require an authenticated owner and same-origin mutations. Leave this disabled on normal deployments. Enabling it permits synthetic test data to be written, not a real model acceptance.

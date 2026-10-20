@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { effectiveMaxOutputTokens, effectiveReasoning, maximumGenerationTokens, parseModelRegistry, selectedModelKeyNames, resolveModelProfile } from './model-registry';
 import { testModelProfile, testModelRegistry } from './model-registry.test-fixture';
+import { AGENT_IDS } from '../../shared/agent-ids';
 
 function environment(agentProfiles: Record<string, string> = {}) {
   const chat = testModelProfile({ id: 'primary', provider: 'my-gateway', keyName: 'MY_GATEWAY_KEY' });
@@ -9,6 +10,32 @@ function environment(agentProfiles: Record<string, string> = {}) {
 }
 
 describe('model registry connections', () => {
+  it('loads every shipped Agent from the editable defaults with one OpenRouter key', () => {
+    const env = { MODEL_REGISTRY: undefined, OPENROUTER_API_KEY: 'synthetic-key' };
+    const registry = parseModelRegistry(env);
+    expect(Object.keys(registry.agentProfiles).sort()).toEqual([...AGENT_IDS].sort());
+    expect(Object.keys(registry.agentReasoning).sort()).toEqual([...AGENT_IDS].sort());
+    expect(selectedModelKeyNames(registry)).toEqual(['OPENROUTER_API_KEY']);
+    for (const id of AGENT_IDS) {
+      expect(resolveModelProfile(env, id)).toMatchObject({
+        model: id === 'article_production' ? 'google/gemini-3.8-flash' : 'z-ai/glm-5.3-flash',
+        protocol: 'openai-chat', keyName: 'OPENROUTER_API_KEY',
+        reasoningEffort: id.startsWith('runtime_synthetic') ? 'none' : 'low',
+      });
+    }
+  });
+
+  it('lets an override replace models and reasoning without inheriting shipped Agent bindings', () => {
+    const env = environment();
+    const registry = { ...JSON.parse(env.MODEL_REGISTRY), defaultReasoning: 'medium', agentReasoning: { content_review: 'high', article_production: 'none' } };
+    const custom = { ...env, MODEL_REGISTRY: JSON.stringify(registry) };
+    expect(resolveModelProfile(custom, 'article_production')).toMatchObject({ id: 'primary', reasoningEffort: 'none' });
+    expect(resolveModelProfile(custom, 'content_review').reasoningEffort).toBe('high');
+    expect(resolveModelProfile(custom, 'growth_leader').reasoningEffort).toBe('medium');
+    expect(resolveModelProfile(env, 'content_review').reasoningEffort).toBe('low');
+    expect(() => parseModelRegistry({ MODEL_REGISTRY: '{invalid' })).toThrow('MODEL_REGISTRY is invalid');
+  });
+
   it('accepts a user-named connection and credential variable without a vendor code change', () => {
     const profile = resolveModelProfile(environment());
     expect(profile).toMatchObject({ provider: 'my-gateway', keyName: 'MY_GATEWAY_KEY', apiKey: 'first-key', protocol: 'openai-chat' });
@@ -31,6 +58,7 @@ describe('model registry connections', () => {
     expect(maximumGenerationTokens(profile)).toBe(32_000);
     expect(effectiveMaxOutputTokens(64_000, profile)).toBe(32_000);
     expect(effectiveReasoning('none', { ...profile, reasoningRequired: true, minimumReasoningEffort: 'low' })).toBe('low');
+    expect(effectiveReasoning('max', { ...profile, minimumReasoningEffort: 'low' })).toBe('max');
     expect(effectiveReasoning('high', { ...profile, reasoningSupported: false })).toBeUndefined();
   });
 
@@ -39,6 +67,8 @@ describe('model registry connections', () => {
     for (const patch of [
       { defaultProfile: 'absent' },
       { agentProfiles: { unknown_agent: 'primary' } },
+      { agentReasoning: { unknown_agent: 'low' } },
+      { agentReasoning: { content_review: 'turbo' } },
       { connections: { ...base.connections, 'my-gateway': { ...base.connections['my-gateway'], protocol: 'unknown' } } },
       { profiles: { primary: { ...base.profiles.primary, connection: 'absent' } } },
       { profiles: { primary: { ...base.profiles.primary, maxOutputTokens: base.profiles.primary.contextWindow } } },

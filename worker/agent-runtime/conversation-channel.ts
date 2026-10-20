@@ -4,7 +4,7 @@ import { streamSimple as streamChat } from '@earendil-works/pi-ai/api/openai-com
 import { streamSimple as streamResponses } from '@earendil-works/pi-ai/api/openai-responses';
 import { streamSimple as streamAnthropic } from '@earendil-works/pi-ai/api/anthropic-messages';
 import { channelRequestBody } from '../lib/model-channel';
-import type { ResolvedModelProfile } from './model-registry';
+import { effectiveReasoning, type ResolvedModelProfile } from './model-registry';
 import { observedFetch } from './request-accounting';
 import { RUNTIME_MODEL_REQUEST_TIMEOUT_MS } from './runtime-limits';
 
@@ -22,16 +22,17 @@ export function conversationChannel(
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     compat: api === 'openai-completions' ? {
       supportsStore: false, supportsDeveloperRole: false, supportsReasoningEffort: false,
-      supportsUsageInStreaming: true, maxTokensField: 'max_tokens', ...profile.compatibility,
+      supportsUsageInStreaming: true, maxTokensField: 'max_tokens', thinkingFormat: 'openai', ...profile.compatibility,
     } : api === 'openai-responses' ? { supportsDeveloperRole: false, supportsStrictMode: false }
       : { forceAdaptiveThinking: profile.compatibility?.forceAdaptiveThinking },
   };
   return {
     model,
     stream: (_model, context, options) => {
+      const effort = effectiveReasoning(options?.reasoning ?? profile.reasoningEffort ?? 'none', profile);
       const settings = {
         ...options, apiKey: profile.apiKey, fetch: options?.fetch || fetch, maxRetries: 0,
-        reasoning: profile.reasoningSupported ? options?.reasoning || (profile.reasoningRequired ? 'low' : undefined) : undefined,
+        reasoning: effort === 'none' ? undefined : effort,
         ...(profile.compatibility?.thinkingBudgetTokens ? { thinkingBudgets: {
           minimal: profile.compatibility.thinkingBudgetTokens, low: profile.compatibility.thinkingBudgetTokens,
           medium: profile.compatibility.thinkingBudgetTokens, high: profile.compatibility.thinkingBudgetTokens,

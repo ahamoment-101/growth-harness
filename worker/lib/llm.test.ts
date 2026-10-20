@@ -6,7 +6,8 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('structured JSON generation', () => {
   const profile = testModelProfile({ model: 'fixture-model', baseUrl: 'https://model.invalid/v1',
-    reasoningRequired: true, minimumReasoningEffort: 'low' });
+    reasoningRequired: true, minimumReasoningEffort: 'low',
+    compatibility: { thinkingFormat: 'openrouter', supportsReasoningEffort: true } });
   it('sends a pinned protocol request without aggregator routing fields', async () => {
     let requestUrl = '';
     let requestBody: Record<string, unknown> = {};

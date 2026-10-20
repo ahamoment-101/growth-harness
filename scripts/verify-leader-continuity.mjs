@@ -1,6 +1,7 @@
 // Explicit, isolated model evaluation. Recorded reads only; no production tools execute.
 // Input is a private export of instructions, manifests, native messages and assignment.
 // Usage: node scripts/verify-leader-continuity.mjs /private/tmp/leader-continuity-case.json /private/tmp/leader-continuity-results
+import { localConfiguration } from './configuration.ts';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -13,15 +14,7 @@ if (!inputPath || !outputPath) throw new Error('Provide a private case export an
 const root = resolve(outputPath);
 await mkdir(root, { recursive: true });
 const fixture = JSON.parse(await readFile(inputPath, 'utf8'));
-const env = {};
-for (const line of (await readFile('.dev.vars', 'utf8')).split('\n')) {
-  const match = line.match(/^([A-Z][A-Z0-9_]*)=(.*)$/);
-  if (match) env[match[1]] = match[2].trim().replace(/^['"]|['"]$/g, '');
-}
-if (!env.MODEL_REGISTRY) {
-  const config = await readFile('wrangler.jsonc', 'utf8');
-  env.MODEL_REGISTRY = JSON.parse(config.match(/"MODEL_REGISTRY"\s*:\s*("(?:\\.|[^"\\])*")/)[1]);
-}
+const { env: env } = localConfiguration();
 const bundlePath = resolve('.wrangler/leader-continuity/evaluation.mjs');
 await build({ stdin: { resolveDir: process.cwd(), contents: `
   export { conversationChannel } from './worker/agent-runtime/conversation-channel';

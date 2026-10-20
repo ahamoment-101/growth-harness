@@ -21,12 +21,10 @@ jobs:
       - run: npm ci --registry=https://registry.npmjs.org
       - run: npm test
       - run: npm run test:sync
-      - run: node --test scripts/check-public-boundary.test.mjs
-      - run: node --test scripts/d1-target.test.mjs
+      - run: node --test scripts/d1-target.test.mjs scripts/sanitize-build.test.mjs scripts/check-public-boundary.test.mjs
       - run: node scripts/check-public-boundary.mjs
       - run: npm run build
       - run: node scripts/check-public-boundary.mjs --artifacts dist
-      - run: node --test scripts/sanitize-build.test.mjs
       - run: node scripts/verify-installation-local.mjs
       - run: npm run verify:self-hosting:local
       - run: npm audit --registry=https://registry.npmjs.org --audit-level=moderate
@@ -50,4 +48,3 @@ jobs:
           echo "$RUNNER_TEMP/gitleaks-bin" >> "$GITHUB_PATH"
           rm gitleaks_8.30.1_linux_x64.tar.gz gitleaks_8.30.1_checksums.txt
       - run: node scripts/check-secrets.mjs
-      - run: node scripts/check-public-boundary.mjs --history

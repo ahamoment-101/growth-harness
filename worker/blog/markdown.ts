@@ -2,7 +2,11 @@ import { publicHttpUrl } from '../../shared/article-presentation';
 
 const CODE_SPAN_MARK = '\u0000';
 
-export function markdownToHtml(markdown: string, rewriteHref?: (href: string) => string): string {
+/** The Markdown text unit containing a link recognized by the renderer. */
+export type MarkdownLinkContext = Readonly<{ anchor: string; source: string }>;
+type RewriteHref = (href: string, context: MarkdownLinkContext) => string;
+
+export function markdownToHtml(markdown: string, rewriteHref?: RewriteHref): string {
   const lines = markdown.replace(/\r\n/g, '\n').split('\n');
   const seen = new Set<string>();
   return renderBlocks(lines, rewriteHref).join('\n').replace(/<h([2-6])>(.*?)<\/h\1>/g, (_match, level: string, content: string) => {
@@ -56,7 +60,7 @@ function tableAlignment(delimiter: string[]): Array<'left' | 'center' | 'right' 
 function matchTable(
   lines: string[],
   start: number,
-  rewriteHref?: (href: string) => string,
+  rewriteHref?: RewriteHref,
 ): { html: string; next: number } | null {
   if (start + 1 >= lines.length) return null;
   if (!lines[start].includes('|')) return null;
@@ -93,7 +97,7 @@ function matchTable(
   return { html: `<table>${head}${body}</table>`, next: i };
 }
 
-function renderBlocks(lines: string[], rewriteHref?: (href: string) => string, depth = 0): string[] {
+function renderBlocks(lines: string[], rewriteHref?: RewriteHref, depth = 0): string[] {
   if (depth >= 20) return [`<p>${escapeHtml(lines.join(' '))}</p>`];
   const out: string[] = [];
   let i = 0;
@@ -168,7 +172,7 @@ function renderBlocks(lines: string[], rewriteHref?: (href: string) => string, d
       para.push(lines[i]);
       i += 1;
     }
-    out.push(`<p>${inline(para.join(' '), rewriteHref)}</p>`);
+    out.push(`<p>${inline(para.join(' '), rewriteHref, para)}</p>`);
   }
   return out;
 }
@@ -181,7 +185,7 @@ function consumeList(
   lines: string[],
   start: number,
   baseIndent: number,
-  rewriteHref?: (href: string) => string,
+  rewriteHref?: RewriteHref,
   depth = 0,
 ): { html: string; next: number } {
   const ordered = matchListItem(lines[start])!.ordered;
@@ -234,19 +238,37 @@ function safeLink(value: string): boolean {
   return !/^[a-z][a-z0-9+.-]*:/i.test(cleaned) || /^(https?:|mailto:|tel:|article:)/i.test(cleaned);
 }
 
-function inline(text: string, rewriteHref?: (href: string) => string): string {
+function inline(text: string, rewriteHref?: RewriteHref, sourceLines?: string[]): string {
   const tokens: string[] = [];
   const token = (html: string) => `${CODE_SPAN_MARK}${tokens.push(html) - 1}${CODE_SPAN_MARK}`;
-  let result = escapeHtml(text.replace(/\u0000/g, ''));
+  const cleanSource = text.replace(/\u0000/g, '');
+  let result = escapeHtml(cleanSource);
   result = result.replace(/`([^`]+)`/g, (_m, code: string) => token(`<code>${code}</code>`));
-  result = result.replace(/(!?)\[([^\]]*)\]\(([^)]+)\)/g, (_m, image: string, label: string, href: string) => {
+  const linkSource = result;
+  result = result.replace(/(!?)\[([^\]]*)\]\(([^)]+)\)/g, (_m, image: string, label: string, href: string, offset: number) => {
     const raw = unescapeBasic(href).trim();
     if (image) {
       const url = publicHttpUrl(raw);
       return token(url ? `<img src="${escapeAttr(url)}" alt="${escapeAttr(unescapeBasic(label))}" loading="lazy" decoding="async">` : label);
     }
     if (!safeLink(raw)) return token(label);
-    const url = rewriteHref ? rewriteHref(raw) : raw;
+    let source = cleanSource;
+    if (rewriteHref && sourceLines) {
+      // The renderer joins paragraph lines with spaces. Restore only protected
+      // code and HTML escapes to map this confirmed match to its original line.
+      const prefix = unescapeBasic(linkSource.slice(0, offset).replace(/\u0000(\d+)\u0000/g,
+        (_match, index: string) => '`' + tokens[Number(index)].replace(/^<code>|<\/code>$/g, '') + '`'));
+      let remaining = prefix.length;
+      for (const line of sourceLines) {
+        const original = line.replace(/\u0000/g, '');
+        if (remaining <= original.length) { source = original; break; }
+        remaining -= original.length + 1;
+      }
+    }
+    const url = rewriteHref ? rewriteHref(raw, {
+      anchor: unescapeBasic(label.replace(/\u0000(\d+)\u0000/g, (_match, index: string) => tokens[Number(index)].replace(/^<code>|<\/code>$/g, ''))),
+      source,
+    }) : raw;
     if (!url || !safeLink(url)) return token(label);
     return token(`<a href="${escapeAttr(url)}">${label.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\*([^*]+)\*/g, '<em>$1</em>')}</a>`);
   });

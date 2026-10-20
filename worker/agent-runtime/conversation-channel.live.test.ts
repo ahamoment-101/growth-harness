@@ -1,6 +1,5 @@
 // Opt-in, bounded real-provider protocol probe. Synthetic input; no business or remote database writes.
-// @ts-ignore Test-only Node API.
-import { readFileSync } from 'node:fs';
+import { localConfiguration } from '../../scripts/configuration';
 import { expect, it } from 'vitest';
 import { runAgentLoop, runAgentLoopContinue, type AgentContext } from '@earendil-works/pi-agent-core';
 import type { Message } from '@earendil-works/pi-ai';
@@ -12,11 +11,7 @@ import { resolveModelProfile } from './model-registry';
 const enabled = process.env.CONVERSATION_LIVE_VERIFY === '1';
 
 it.skipIf(!enabled)('uses the real provider to call the research finding schema and observe the native result', async () => {
-  const vars: Record<string, string> = {};
-  for (const line of readFileSync('.dev.vars', 'utf8').split('\n')) {
-    const match = line.match(/^([A-Z][A-Z0-9_]*)=(.*)$/);
-    if (match) vars[match[1]] = match[2].trim().replace(/^['"]|['"]$/g, '');
-  }
+  const { env: vars } = localConfiguration();
   const requests: Array<Record<string, any>> = [];
   const channel = conversationChannel({ ...resolveModelProfile(vars, 'strategy_research'), maxOutputTokens: 1024 }, async (url, init) => {
       if (requests.length >= 4) throw new Error('Live probe request budget exhausted');
@@ -53,11 +48,7 @@ it.skipIf(!enabled)('uses the real provider to call the research finding schema 
 }, 70000);
 
 it.skipIf(!enabled)('accepts an assistant-tail continuation and serializes the configured generation allowance', async () => {
-  const vars: Record<string, string> = {};
-  for (const line of readFileSync('.dev.vars', 'utf8').split('\n')) {
-    const match = line.match(/^([A-Z][A-Z0-9_]*)=(.*)$/);
-    if (match) vars[match[1]] = match[2].trim().replace(/^['"]|['"]$/g, '');
-  }
+  const { env: vars } = localConfiguration();
   const requests: Array<Record<string, any>> = [];
   const channel = conversationChannel({ ...resolveModelProfile(vars), maxOutputTokens: 32000 }, async (url, init) => {
       if (requests.length) throw new Error('Only one physical request is authorized for this probe');
@@ -79,7 +70,7 @@ it.skipIf(!enabled)('accepts an assistant-tail continuation and serializes the c
   expect(requests[0].messages.at(-1).role).toBe('assistant');
   if (response?.errorMessage) {
     let error = response.errorMessage;
-    for (const [key, value] of Object.entries(vars)) if (/KEY|TOKEN|SECRET/.test(key) && value) error = error.replaceAll(value, '[redacted]');
+    for (const [key, value] of Object.entries(vars)) if (/KEY|TOKEN|SECRET/.test(key) && typeof value === 'string' && value) error = error.replaceAll(value, '[redacted]');
     console.info('ASSISTANT_TAIL_ERROR', error.slice(0, 1000));
   }
   expect(response?.stopReason).toBe('stop');

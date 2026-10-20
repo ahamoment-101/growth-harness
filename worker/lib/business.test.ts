@@ -35,6 +35,30 @@ describe('business modules', () => {
     expect(contentFromBusinessMarkdown('product', markdown)).toMatchObject({ summary: 'A product', category: 'Tools' });
   });
 
+  it('includes saved free-form Markdown even when no template fields can be parsed', () => {
+    const markdown = '# What we do\n\nWe publish articles. We do not store customer project files.';
+    const module: BusinessModuleView = { key: 'product', content: contentFromBusinessMarkdown('product', markdown),
+      markdown, version: 2, schema_version: 1, source: 'manual', updated_at: 'now' };
+    expect(Object.values(module.content).every(value => !value)).toBe(true);
+    expect(buildBusinessContext([module])).toBe(markdown);
+  });
+
+  it('does not turn an empty editor template or comments into business facts', () => {
+    for (const markdown of ['', '  <!-- Add facts later -->  ', businessModuleMarkdown('product', {}),
+      businessModuleMarkdown('product', {}).replace(/<!--[\s\S]*?-->/g, '')]) {
+      const module: BusinessModuleView = { key: 'product', content: emptyBusinessModuleContent('product'),
+        markdown, version: 1, schema_version: 1, source: 'manual', updated_at: 'now' };
+      expect(buildBusinessContext([module])).toContain('No manually confirmed business information');
+    }
+  });
+
+  it('uses Markdown as the document while preserving older structured-only records', () => {
+    const module: BusinessModuleView = { key: 'product', content: { summary: 'Old product facts' },
+      markdown: '# Updated facts\n\nCurrent capabilities.', version: 2, schema_version: 1, source: 'manual', updated_at: 'now' };
+    expect(buildBusinessContext([module])).toBe(module.markdown);
+    expect(buildBusinessContext([{ ...module, markdown: '' }])).toContain('Old product facts');
+  });
+
   it('keeps late modules available even when earlier fields are very long', () => {
     const modules = BUSINESS_MODULES.map((definition) => ({
       key: definition.key,

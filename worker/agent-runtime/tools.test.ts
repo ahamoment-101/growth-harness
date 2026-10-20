@@ -79,7 +79,6 @@ describe('Agent Tool Registry', () => {
     const definition = agentDefinition('topic_decision');
     const registry = runtimeAgentModule('topic_decision').createToolRegistry!({} as never);
     expect(registry.resolve(definition, 'topic_search_web').inputSchema).toBeDefined();
-    expect(registry.modelTools(definition)).toHaveProperty('topic_search_web');
-    expect(registry.modelTools(definition)).toHaveProperty('read_published_articles');
+    expect(registry.resolve(definition, 'read_published_articles').inputSchema).toBeDefined();
   });
 });

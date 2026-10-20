@@ -15,6 +15,8 @@ describe('locale switcher html', () => {
     expect(html).toContain('https://blog.example.com/zh/blog?set_locale=zh-CN');
     expect(html).toContain('aria-current="true"');
     expect(html).toContain(localeDisplayName('zh-CN'));
+    expect(html).toContain('Chinese (China)');
+    expect(html).not.toMatch(/[\u3400-\u9fff]/u);
     expect(localeSwitcherHtml([{ locale: 'en', href: '/en/blog' }], 'en')).toBe('');
   });
 

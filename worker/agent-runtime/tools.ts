@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { tool } from 'ai';
 import type { AgentDefinition } from './definitions';
 import { redactRuntimeValue, redactRuntimeValuePreservingSize } from './protocol';
 
@@ -88,14 +87,6 @@ export class ToolRegistry {
   }
 
   names(): string[] { return [...this.tools.keys()]; }
-
-  modelTools(definition: AgentDefinition, names: readonly string[] = definition.tools) {
-    return Object.fromEntries(names.map((name) => {
-      const registered = this.resolve(definition, name);
-      return [name, tool({ description: registered.description, inputSchema: registered.inputSchema })];
-    }));
-  }
-
 
   async execute(definition: AgentDefinition, name: string, input: unknown, context: RuntimeToolContext): Promise<unknown> {
     this.beforeExecute?.();

@@ -150,13 +150,14 @@ function dayOf(iso: string | undefined): string {
   return iso ? iso.slice(0, 10) : '';
 }
 
-/** Locale-aware display ("August 18, 2026") with the ISO value kept in datetime; falls back to the ISO day. */
+/** Localized dates use English for Chinese content, retaining the original ISO datetime. */
 function localizedDayHtml(iso: string | undefined, locale: string): string {
   if (!iso) return '';
   const day = dayOf(iso);
   let label = day;
   try {
-    label = new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(iso));
+    const displayLocale = locale.split('-')[0]?.toLowerCase() === 'zh' ? 'en' : locale;
+    label = new Intl.DateTimeFormat(displayLocale, { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(iso));
   } catch {
     // Unknown locale: keep the ISO day.
   }
@@ -195,12 +196,11 @@ export function customerHomeHref(site: Site): string {
 
 /**
  * Static shell copy in the site's own language — the footer links plus the article page's way back
- * to its index. Keyed by base language (`zh-CN` and `zh-Hant` both hit `zh`); falls back to English
- * for anything not covered.
+ * to its index. Keyed by base language; Chinese content and uncovered languages use English
+ * shell copy without changing the article's content language.
  */
 const SHELL_LABELS: Record<string, { blogIndex: string; home: string; back: string; summary: string }> = {
   en: { blogIndex: 'All posts', home: 'Home', back: 'Back to blog', summary: 'Summary' },
-  zh: { blogIndex: '\u5168\u90e8\u6587\u7ae0', home: '\u9996\u9875', back: '\u8fd4\u56de\u535a\u5ba2', summary: '\u6458\u8981' },
   ja: { blogIndex: 'すべての\u8a18\u4e8b', home: 'ホーム', back: 'ブログに\u623bる', summary: '\u6982\u8981' },
   ko: { blogIndex: '전체 글', home: '홈', back: '블로그로 돌아가기', summary: '요약' },
   es: { blogIndex: 'Todos los artículos', home: 'Inicio', back: 'Volver al blog', summary: 'Resumen' },

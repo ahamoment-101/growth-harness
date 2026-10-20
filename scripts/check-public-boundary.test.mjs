@@ -1,17 +1,36 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 import { boundaryIssues, checkPublicBoundary, checkArtifacts } from './check-public-boundary.mjs';
 
 test('rejects private/local paths and environment files while allowing empty documented templates', () => {
-  for (const path of ['worker/private-models/adapter.ts', 'docs/provider-history/receipt.md', '.public-core-sync.json', '.zcode/plan.md', 'design/mock.svg', '.dev.vars', 'nested/.env.production', 'prototypes/experiment.js', 'hitl-lab/fixture.ts', '.claude/launch.json', 'docs/acceptance/production.md', 'docs/internal-archive/report.md', 'backup.sqlite', 'credentials.pem']) {
+  for (const path of ['worker/private-models/adapter.ts', '.public-core-sync.json', '.zcode/plan.md', 'design/mock.svg', '.dev.vars', 'nested/.env.production', 'prototypes/experiment.js', 'hitl-lab/fixture.ts', '.claude/launch.json', 'docs/internal-archive/report.md', 'backup.sqlite', 'credentials.pem']) {
     assert.ok(boundaryIssues(path, Buffer.from('')).length, path);
   }
   assert.deepEqual(boundaryIssues('.dev.vars.example', Buffer.from('OPENROUTER_API_KEY=')), []);
   assert.deepEqual(boundaryIssues('worker/lib/model-request.ts', Buffer.from('generic protocol transport')), []);
+  const policy = JSON.parse(readFileSync(new URL('./public-distribution-policy.json', import.meta.url)));
+  for (const identifier of policy.forbiddenContent) assert.ok(boundaryIssues('worker/adapter.ts', Buffer.from(identifier)).length);
+});
+
+test('reserves vendor and export-document rules for explicit maintainer checks', () => {
+  const root = mkdtempSync(join(tmpdir(), 'public-export-policy-'));
+  const script = fileURLToPath(new URL('./check-public-boundary.mjs', import.meta.url));
+  try {
+    execFileSync('git', ['init', '-q'], { cwd: root });
+    mkdirSync(join(root, 'docs/acceptance'), { recursive: true });
+    const policy = JSON.parse(readFileSync(new URL('./public-distribution-policy.json', import.meta.url)));
+    writeFileSync(join(root, 'docs/acceptance/method.md'), 'Synthetic reproducible verification method');
+    writeFileSync(join(root, 'docs/providers.md'), policy.exportOnlyContent[0]);
+    assert.equal(checkPublicBoundary(root).failures.length, 0);
+    assert.equal(checkPublicBoundary(root, false, [], true).failures.length, 2);
+    assert.equal(spawnSync(process.execPath, [script], { cwd: root }).status, 0);
+    assert.equal(spawnSync(process.execPath, [script, '--export'], { cwd: root }).status, 1);
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
 test('checks externally supplied private identifiers without exposing their values', () => {
@@ -38,19 +57,20 @@ test('checks final production output for credentials and demonstration data', ()
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test('allows upstream SDK public vendor domains but still rejects project implementations in source maps', () => {
+test('keeps maintainer export rules for project source maps without rejecting upstream SDK vendor domains', () => {
   const root = mkdtempSync(join(tmpdir(), 'public-sdk-artifacts-'));
   try {
     const policy = JSON.parse(readFileSync(new URL('./public-distribution-policy.json', import.meta.url)));
     const vendor = policy.thirdPartyArtifactContent[0];
     writeFileSync(join(root, 'index.js'), vendor);
     writeFileSync(join(root, 'index.js.map'), JSON.stringify({ sources: ['../../node_modules/upstream-sdk/transport.js'], sourcesContent: [vendor] }));
-    assert.deepEqual(checkArtifacts(root).failures, []);
+    assert.deepEqual(checkArtifacts(root, [], true).failures, []);
     writeFileSync(join(root, 'index.js.map'), JSON.stringify({ sources: ['../../worker/adapter.ts'], sourcesContent: [vendor] }));
-    assert.ok(checkArtifacts(root).failures.some(issue => issue.source === '../../worker/adapter.ts'));
+    assert.deepEqual(checkArtifacts(root).failures, []);
+    assert.ok(checkArtifacts(root, [], true).failures.some(issue => issue.source === '../../worker/adapter.ts'));
     writeFileSync(join(root, 'index.js.map'), JSON.stringify({ sources: ['../../worker/private-models/adapter.ts'], sourcesContent: ['neutral code'] }));
     assert.ok(checkArtifacts(root).failures.some(issue => issue.issue.includes('private or local-only')));
-    assert.ok(boundaryIssues('worker/adapter.ts', Buffer.from(vendor)).length);
+    assert.deepEqual(boundaryIssues('worker/adapter.ts', Buffer.from(vendor)), []);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

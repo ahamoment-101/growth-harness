@@ -17,7 +17,7 @@ const git = (root, ...args) => execFileSync('git', args, { cwd: root, encoding: 
 // Historical distribution-specific model defaults remain owned by each checkout.
 const exclusions = new Set(['shared/config/model-extensions.ts', 'worker/lib/model-extensions.ts', 'migrations/0001_init.sql', 'migrations/0028_fix_agent_model_configuration.sql']);
 const folders = ['worker', 'shared', 'packs', 'src', 'migrations'];
-const sharedFiles = ['index.html', 'worker-configuration.d.ts', 'vite.config.ts', 'scripts/configuration.ts', 'scripts/config-check.ts', 'scripts/deploy-check.ts', 'scripts/secrets-upload.ts', 'scripts/setup.ts', 'scripts/auth-reset.ts', 'scripts/sanitize-build.mjs', 'scripts/sanitize-build.test.mjs', 'scripts/collect-license-notices.mjs', 'scripts/runtime-fixture-capabilities.mjs', 'scripts/sync-public-core.mjs', 'scripts/sync-public-core.test.mjs', 'scripts/d1-target.mjs', 'scripts/d1-target.test.mjs', 'scripts/d1-migrate.ts', 'scripts/report-agent-requests.mjs'];
+const sharedFiles = ['index.html', 'worker-configuration.d.ts', 'vite.config.ts', 'scripts/configuration.ts', 'scripts/config-check.ts', 'scripts/deploy-check.ts', 'scripts/secrets-upload.ts', 'scripts/setup.ts', 'scripts/auth-reset.ts', 'scripts/sanitize-build.mjs', 'scripts/sanitize-build.test.mjs', 'scripts/collect-license-notices.mjs', 'scripts/runtime-fixture-capabilities.mjs', 'scripts/d1-target.mjs', 'scripts/d1-target.test.mjs', 'scripts/d1-migrate.ts', 'scripts/report-agent-requests.mjs'];
 const files = [...new Set(git(source, 'ls-files', '--cached', '--others', '--exclude-standard', '--', ...folders, ...sharedFiles).split('\n'))]
   .filter(path => path && !exclusions.has(path) && !path.startsWith('worker/private-models/') && existsSync(resolve(source, path)));
 const hash = path => existsSync(path) ? createHash('sha256').update(readFileSync(path)).digest('hex') : null;
@@ -62,9 +62,18 @@ for (const path of Object.keys(previousFiles)) {
 const sourcePackage = JSON.parse(readFileSync(resolve(source, 'package.json'), 'utf8'));
 const targetPackage = JSON.parse(readFileSync(resolve(target, 'package.json'), 'utf8'));
 for (const field of ['dependencies', 'devDependencies', 'overrides', 'engines']) targetPackage[field] = { ...targetPackage[field], ...sourcePackage[field] };
+// Retire commands previously injected by this tool, preserving downstream customizations.
+const retiredScripts = {
+  'core:sync': 'node scripts/sync-public-core.mjs',
+  'test:sync': 'node --test scripts/sync-public-core.test.mjs',
+  'verify:strategy:workflow:local': 'node scripts/verify-strategy-workflow-local.mjs',
+};
+for (const [name, command] of Object.entries(retiredScripts)) {
+  if (targetPackage.scripts[name] === command) delete targetPackage.scripts[name];
+}
 for (const [name, command] of Object.entries(sourcePackage.scripts)) {
-  if (name === 'release:check') continue; // The private distribution intentionally contains private material.
-  if (name === 'build' || name === 'test' || name === 'core:sync' || name.startsWith('db:migrate:') || !targetPackage.scripts[name]) targetPackage.scripts[name] = command;
+  if (name === 'release:check' || name in retiredScripts) continue;
+  if (name === 'build' || name === 'test' || name.startsWith('db:migrate:') || !targetPackage.scripts[name]) targetPackage.scripts[name] = command;
 }
 const packageChanged = JSON.stringify(targetPackage, null, 2) + '\n' !== readFileSync(resolve(target, 'package.json'), 'utf8');
 if (conflicts.length) throw new Error('Downstream core edits need reconciliation: ' + conflicts.join(', '));

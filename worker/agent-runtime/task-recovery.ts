@@ -48,7 +48,7 @@ async function workflowState(env: RuntimeAgentEnv, id: string) {
   try { return await instance.status(); } finally { disposeRpcResource(instance); }
 }
 
-async function settleClosedHostRequests(db: D1Database, taskId: string, runId: string, now: Date) {
+export async function settleClosedHostRequests(db: D1Database, taskId: string, runId: string, now: Date) {
   // Preserve accounting and payloads. A closed host proves only that no receipt
   // can arrive, not whether the provider completed or charged the request.
   await db.batch([

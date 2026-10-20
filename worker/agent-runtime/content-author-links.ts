@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { contentAssignment } from './content-editorial';
-import { articleHrefs, contentLinkCounts, MAX_CONTENT_INTERNAL_LINKS, type ContentLinkPolicy } from './content-link-policy';
+import { articleHrefs, contentLinkCounts, contentProductLink, AUTHOR_CONTENT_LINK_REQUIREMENT_INSTRUCTIONS,
+  MIN_CONTENT_INTERNAL_LINKS, MAX_CONTENT_INTERNAL_LINKS, type ContentLinkPolicy } from './content-link-policy';
 import { searchPublishedLinkArticles } from './content-link-reading';
 import type { ArticleTask } from './content-production';
 import type { RuntimeAgentEnv } from './env';
@@ -12,7 +13,7 @@ import type { RuntimeTool } from './tools';
  * From article definition v17 the author owns internal links: it finds targets while writing,
  * writes host-supplied link forms into its own text, and the independent reviewer checks them.
  */
-export const MIN_CONTENT_INTERNAL_LINKS = 1;
+export { MIN_CONTENT_INTERNAL_LINKS } from './content-link-policy';
 const PAGE_SIZE = 20;
 const SNIPPET_RADIUS = 160;
 
@@ -21,18 +22,11 @@ export const AUTHOR_OWNED_LINK_INSTRUCTIONS = `You own the internal links of thi
 - Link only when the target page genuinely serves the reader's need at that point. Title similarity, keyword overlap and recency alone are insufficient.
 - Use a short, natural anchor that describes the target and sits on words the sentence would contain anyway. Never use bare instructions such as "click here" or "learn more".
 - Write the link exactly as returned in the link field. Never compose blog URLs yourself. Sibling articles render as plain text until they are published in that locale; never describe them as live pages.
-- Each locale's body must contain between ${MIN_CONTENT_INTERNAL_LINKS} and ${MAX_CONTENT_INTERNAL_LINKS} internal links, including the product page. Do not add links to reach a number; choose the most useful ones. External evidence citations do not count. Choose targets in each locale version's own language.
+- ${AUTHOR_CONTENT_LINK_REQUIREMENT_INSTRUCTIONS}
 - On revision, adjust the links the review asks you to change and keep links that still serve readers.`;
 
 function policyFor(article: ArticleTask): ContentLinkPolicy {
   return { blog_origin: article.blog_origin, product_origin: article.product_origin, hub_path: article.hub_path, hub_urls: article.hub_urls };
-}
-
-function productLink(article: ArticleTask, locale: string): string {
-  const localized = article.hub_urls[locale];
-  if (localized) return localized;
-  if (!article.product_origin) return '';
-  try { return new URL(article.hub_path || '/', article.product_origin).href; } catch { return ''; }
 }
 
 /** Every published version in the site, so link validation is not limited to the recent articles placed in the assignment. */
@@ -98,7 +92,7 @@ export function findLinkTargetsTool(env: RuntimeAgentEnv): RuntimeTool<z.infer<t
           targets.push({ kind: 'sibling', title: sibling.title_direction, excerpt: `Planned sibling article for "${sibling.primary_keyword}"`, snippet: '', url: null, link: `article:${sibling.job_id}` });
         }
       }
-      const product = args.include.includes('product') ? productLink(article, args.locale) : '';
+      const product = args.include.includes('product') ? contentProductLink(policyFor(article), args.locale) : '';
       if (product && /^https?:\/\//i.test(product)) targets.push({ kind: 'product', title: 'Configured product page', excerpt: '', snippet: '', url: product, link: product });
       return { locale: args.locale, query: args.query, total_matches: targets.length,
         next_offset: args.offset + PAGE_SIZE < targets.length ? args.offset + PAGE_SIZE : null, targets: targets.slice(args.offset, args.offset + PAGE_SIZE) };

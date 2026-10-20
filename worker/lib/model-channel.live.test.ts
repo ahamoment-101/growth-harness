@@ -1,8 +1,5 @@
 // Opt-in paid check. Uses only the selected profile and synthetic input.
-// @ts-ignore Test-only Node API.
-import { readFileSync } from 'node:fs';
-// @ts-ignore Test-only Node API.
-import { parseEnv } from 'node:util';
+import { localConfiguration } from '../../scripts/configuration';
 import { expect, it } from 'vitest';
 import { conversationChannel } from '../agent-runtime/conversation-channel';
 import { resolveModelProfile } from '../agent-runtime/model-registry';
@@ -10,7 +7,7 @@ import { resolveModelProfile } from '../agent-runtime/model-registry';
 const enabled = process.env.MODEL_TRANSPORT_LIVE_VERIFY === '1';
 
 it.skipIf(!enabled)('calls a tool through the configured connection without overriding its model or protocol', async () => {
-  const env = parseEnv(readFileSync('.dev.vars', 'utf8'));
+  const { env } = localConfiguration();
   const profile = resolveModelProfile(env);
   const channel = conversationChannel(profile);
   const result = await (await channel.stream(channel.model, {

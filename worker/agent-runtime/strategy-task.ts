@@ -6,7 +6,6 @@ import { taskDecisionTurns } from './conversation-store';
 import { ToolContractError } from './tool-failure';
 import { z } from 'zod';
 import { hitlTool } from '../agent-work/hitl-tool';
-import type { LanguageModel } from 'ai';
 import type { AgentDefinition } from './definitions';
 import type { RuntimeAgentEnv, RuntimeWorkflowStep } from './env';
 import { ToolRegistry } from './tools';
@@ -289,7 +288,7 @@ async function evidence(db: RuntimeAgentEnv['DB'], taskId: string): Promise<Stra
 }
 export function strategyTaskTools(input: {
   env: RuntimeAgentEnv; step?: RuntimeWorkflowStep; definition: AgentDefinition; runId?: string;
-  task?: AgentTask; operation?: TaskOperation; locale?: string; languageModel?: LanguageModel;
+  task?: AgentTask; operation?: TaskOperation; locale?: string;
 }): ToolRegistry {
   const { env, definition } = input;
   // Registration is also used for contract inspection. Execution requires a task binding.

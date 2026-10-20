@@ -6,10 +6,6 @@ export function localeDisplayName(code: string): string {
   const trimmed = code.trim();
   if (!trimmed) return code;
   try {
-    const native = new Intl.DisplayNames([trimmed], { type: 'language' }).of(trimmed);
-    if (native) return native;
-  } catch { /* fall through */ }
-  try {
     const english = new Intl.DisplayNames(['en'], { type: 'language' }).of(trimmed);
     if (english) return english;
   } catch { /* fall through */ }

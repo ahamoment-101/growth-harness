@@ -26,10 +26,6 @@
   "durable_objects": {
     "bindings": [
       {
-        "name": "AGENT_RUNTIME_PROBE",
-        "class_name": "AgentRuntimeProbe"
-      },
-      {
         "name": "AGENT_SHELL",
         "class_name": "AgentShell"
       },
@@ -51,6 +47,11 @@
     {
       "tag": "v3-site-room",
       "new_sqlite_classes": ["SiteRoom"]
+    },
+    {
+      // Keep prior migrations intact; deployment retires only the obsolete probe's stored state.
+      "tag": "v4-retire-agent-runtime-probe",
+      "deleted_classes": ["AgentRuntimeProbe"]
     }
   ],
   "workflows": [
@@ -65,11 +66,6 @@
       "class_name": "LocalizeWorkflow"
     },
     {
-      "name": "agent-runtime-probe",
-      "binding": "AGENT_RUNTIME_PROBE_WORKFLOW",
-      "class_name": "AgentRuntimeProbeWorkflow"
-    },
-    {
       "name": "agent-runtime",
       "binding": "AGENT_WORKFLOW",
       "class_name": "AgentRuntimeWorkflow"
@@ -79,9 +75,7 @@
     "crons": ["0 * * * *", "* * * * *"]
   },
   "vars": {
-    "MODEL_REGISTRY": "{\"version\":2,\"defaultProfile\":\"openrouter/default\",\"agentProfiles\":{},\"connections\":{\"openrouter\":{\"protocol\":\"openai-chat\",\"baseUrl\":\"https://openrouter.ai/api/v1\",\"apiKeyEnv\":\"OPENROUTER_API_KEY\",\"headers\":{\"HTTP-Referer\":\"https://github.com/ahamoment-101/growth-harness\",\"X-OpenRouter-Title\":\"GrowthHarness\"}},\"openai\":{\"protocol\":\"openai-responses\",\"baseUrl\":\"https://api.openai.com/v1\",\"apiKeyEnv\":\"OPENAI_API_KEY\"},\"anthropic\":{\"protocol\":\"anthropic-messages\",\"baseUrl\":\"https://api.anthropic.com/v1\",\"apiKeyEnv\":\"ANTHROPIC_API_KEY\"}},\"profiles\":{\"openrouter/default\":{\"supportedParameters\":[\"tools\",\"tool_choice\",\"max_tokens\",\"response_format\",\"reasoning\",\"reasoning_effort\"],\"reasoningSupported\":true,\"reasoningRequired\":false,\"connection\":\"openrouter\",\"model\":\"openai/gpt-5.6-terra\",\"contextWindow\":1050000,\"maxOutputTokens\":128000,\"sourceUrl\":\"https://openrouter.ai/api/v1/models\",\"compatibility\":{\"thinkingFormat\":\"openrouter\",\"supportsReasoningEffort\":true}},\"openai/default\":{\"supportedParameters\":[\"tools\",\"tool_choice\",\"max_output_tokens\",\"text.format\",\"reasoning\"],\"reasoningSupported\":true,\"reasoningRequired\":false,\"connection\":\"openai\",\"model\":\"gpt-5.6-terra\",\"contextWindow\":1050000,\"maxOutputTokens\":128000,\"sourceUrl\":\"https://developers.openai.com/api/docs/models/gpt-5.6-terra\"},\"anthropic/default\":{\"supportedParameters\":[\"tools\",\"tool_choice\",\"max_tokens\",\"response_format\"],\"reasoningSupported\":true,\"reasoningRequired\":false,\"connection\":\"anthropic\",\"model\":\"claude-sonnet-5-5\",\"contextWindow\":1000000,\"maxOutputTokens\":128000,\"sourceUrl\":\"https://platform.claude.com/docs/en/models/overview\",\"compatibility\":{\"forceAdaptiveThinking\":true}}}}",
-    "AGENT_RUNTIME_PROBE_ENABLED": "false",
-    "DEV_TOOLS_ENABLED": "false",
+    // Model defaults: shared/config/agent-models.json. MODEL_REGISTRY is an optional full override.
     "CLOUDFLARE_WORKER_NAME": "programmatic-seo",
     "AGENT_RUNTIME_ENABLED": "true",
     "AUTH_LOGIN_METHODS": "password",

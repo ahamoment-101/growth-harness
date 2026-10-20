@@ -14,7 +14,6 @@
     "test": "vitest run",
     "test:runtime": "vitest run worker/agent-runtime",
     "verify:runtime:local": "node scripts/verify-strategy-workflow-local.mjs",
-    "verify:strategy:workflow:local": "node scripts/verify-strategy-workflow-local.mjs",
     "verify:strategy:browser:local": "node scripts/verify-strategy-browser-local.mjs",
     "verify:runtime:long:local": "VERIFY_LONG_RUNTIME=1 node scripts/verify-strategy-workflow-local.mjs",
     "verify:business:workflow:local": "node scripts/verify-business-workflow-local.mjs",
@@ -26,19 +25,15 @@
     "verify:self-hosting:local": "node scripts/verify-self-hosting-local.mjs",
     "core:sync": "node scripts/sync-public-core.mjs",
     "test:sync": "node --test scripts/sync-public-core.test.mjs",
-    "release:check": "node scripts/check-public-boundary.mjs && node scripts/check-public-boundary.mjs --history && node scripts/check-public-boundary.mjs --artifacts dist"
+    "release:check": "node scripts/check-public-boundary.mjs --export && node scripts/check-public-boundary.mjs --export --history && node scripts/check-public-boundary.mjs --export --artifacts dist"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^4.0.82",
-    "@ai-sdk/openai": "^4.0.96",
-    "@ai-sdk/openai-compatible": "^3.0.40",
     "@earendil-works/pi-agent-core": "0.84.3",
     "@earendil-works/pi-ai": "0.84.4",
     "@modelcontextprotocol/client": "2.3.1",
     "@modelcontextprotocol/sdk": "1.32.1",
     "@modelcontextprotocol/server": "2.3.1",
     "agents": "0.21.0",
-    "ai": "^7.0.77",
     "react": "^19.1.2",
     "react-dom": "^19.1.2",
     "three": "^0.180.0",

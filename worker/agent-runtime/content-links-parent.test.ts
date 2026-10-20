@@ -7,6 +7,7 @@ import { saveSlot } from './parameter-slots';
 import { beginTaskDecision, finishTaskOperation, requireTask, setTaskAction } from './task-store';
 import type { AgentModuleExecutionContext } from './agent-modules';
 import type { AgentRun } from './protocol';
+import { AUTHOR_CONTENT_LINK_REQUIREMENT_INSTRUCTIONS } from './content-link-policy';
 
 vi.mock('./conversation-runtime', () => ({ runConversationTask: vi.fn(async () => ({ status: 'waiting', output: {} })) }));
 vi.mock('./child-run-wait', () => ({ waitForChildRuns: async () => [] }));
@@ -18,6 +19,9 @@ it('maps parent read/edit tools and dispatches the exact edited candidate and ta
   const startChildRun = vi.fn(async (value: {runId: string}) => ({ id: value.runId }));
   await runContentParentConversation({ env: f.p.env, run, definition: agentDefinition('content_production'), startChildRun, step: {} } as unknown as AgentModuleExecutionContext);
   const agent = vi.mocked(runConversationTask).mock.calls.at(-1)![0].agent;
+  expect(agent.instructions).toContain('Zero is valid');
+  expect(agent.instructions).not.toContain(AUTHOR_CONTENT_LINK_REQUIREMENT_INSTRUCTIONS);
+  expect(await agent.context(f.p.task)).not.toHaveProperty('internal_linking');
   const registry = agent.tools(f.p.task, f.op);
   expect(registry.resolve(agentDefinition('content_production'), 'read_published_articles').version).toBe(2);
   const edit = registry.resolve(agentDefinition('content_production'), 'edit_article_internal_links');

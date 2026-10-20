@@ -20,17 +20,13 @@ export function inspectConfiguration(env: ConfigurationValues, requireModels = f
     if (missing.length) warnings.push({ feature: service.id, keys: missing, message: `${service.id} is not configured; its associated operations are unavailable. Missing: ${missing.join(', ')}` });
   }
   let modelKeys: string[] = [];
-  if (configuredValue(env, 'MODEL_REGISTRY')) {
-    try {
-      const registry = parseModelRegistry(env as ModelRegistryEnv);
-      modelKeys = selectedModelKeyNames(registry);
-      const missing = modelKeys.filter(key => !configuredValue(env, key));
-      if (missing.length) (requireModels ? errors : warnings).push({ feature: 'models', keys: missing, message: `Selected models require: ${missing.join(', ')}. Configure their keys or select another supported profile.` });
-    } catch {
-      errors.push({ feature: 'models', keys: ['MODEL_REGISTRY'], message: 'MODEL_REGISTRY is invalid. Check profiles, Agent IDs, provider dialects and documented capacities.' });
-    }
-  } else {
-    (requireModels ? errors : warnings).push({ feature: 'models', keys: ['MODEL_REGISTRY'], message: 'MODEL_REGISTRY is not configured; Agent model calls are unavailable.' });
+  try {
+    const registry = parseModelRegistry(env as ModelRegistryEnv);
+    modelKeys = selectedModelKeyNames(registry);
+    const missing = modelKeys.filter(key => !configuredValue(env, key));
+    if (missing.length) (requireModels ? errors : warnings).push({ feature: 'models', keys: missing, message: `Selected models require: ${missing.join(', ')}. Configure their keys or select another supported profile.` });
+  } catch {
+    errors.push({ feature: 'models', keys: ['MODEL_REGISTRY'], message: 'MODEL_REGISTRY is invalid. Check profiles, Agent IDs, provider dialects and documented capacities.' });
   }
   return { errors, warnings, loginMethods: login.methods, modelKeys, services };
 }

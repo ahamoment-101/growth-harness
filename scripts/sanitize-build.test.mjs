@@ -15,9 +15,9 @@ function fixture(run) {
 }
 
 test('allows documented public settings and removes preview credentials for any Worker name', () => fixture((root, check) => {
-  writeFileSync(join(root, '.dev.vars'), 'AUTH_LOGIN_METHODS=password,google\nDATAFORSEO_LOGIN=operator@example.invalid\nCLOUDFLARE_WORKER_NAME=renamed_worker\nDEV_TOOLS_ENABLED=false\nMODEL_API_KEY=synthetic-private-test-key\n');
+  writeFileSync(join(root, '.dev.vars'), 'AUTH_LOGIN_METHODS=password,google\nDATAFORSEO_LOGIN=operator@example.invalid\nCLOUDFLARE_WORKER_NAME=renamed_worker\nMODEL_API_KEY=synthetic-private-test-key\n');
   writeFileSync(join(root, 'dist/renamed_worker/.dev.vars'), 'MODEL_API_KEY=synthetic-private-test-key');
-  writeFileSync(join(root, 'dist/renamed_worker/wrangler.json'), JSON.stringify({ vars: { AUTH_LOGIN_METHODS: 'password,google', DATAFORSEO_LOGIN: 'operator@example.invalid', CLOUDFLARE_WORKER_NAME: 'renamed_worker', DEV_TOOLS_ENABLED: 'false' } }));
+  writeFileSync(join(root, 'dist/renamed_worker/wrangler.json'), JSON.stringify({ vars: { AUTH_LOGIN_METHODS: 'password,google', DATAFORSEO_LOGIN: 'operator@example.invalid', CLOUDFLARE_WORKER_NAME: 'renamed_worker' } }));
   assert.equal(check().status, 0);
   assert.equal(existsSync(join(root, 'dist/renamed_worker/.dev.vars')), false);
 }));

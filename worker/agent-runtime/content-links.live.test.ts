@@ -1,5 +1,5 @@
 // @ts-nocheck Node-only opt-in transport probe; synthetic public content, no production writes.
-import { readFileSync } from 'node:fs';
+import { localConfiguration } from '../../scripts/configuration';
 import { expect, it } from 'vitest';
 import { z } from 'zod';
 import { runAgentLoopContinue } from '@earendil-works/pi-agent-core';
@@ -11,11 +11,7 @@ import { PARENT_INTERNAL_LINK_INSTRUCTIONS } from './content-link-policy';
 
 const enabled = process.env.CONTENT_LINKS_LIVE_VERIFY === '1';
 for (const useful of [true, false]) it.skipIf(!enabled)(`serializes parent link editing and accepts ${useful ? 'a useful target' : 'zero links'} on the configured model`, async () => {
-  const vars = {};
-  for (const line of readFileSync('.dev.vars', 'utf8').split('\n')) {
-    const m = line.match(/^([A-Z][A-Z0-9_]*)=(.*)$/);
-    if (m) vars[m[1]] = m[2].trim().replace(/^['"]|['"]$/g, '');
-  }
+  const { env: vars } = localConfiguration();
   const requests = [];
   const responses = [];
   const channel = conversationChannel({ ...resolveModelProfile(vars, 'content_production'), maxOutputTokens: 4096 }, async (url, init) => {

@@ -46,11 +46,11 @@ describe('Runtime Agent module architecture', () => {
     // @ts-ignore Vitest provides import.meta.url; Worker compilation intentionally omits Node globals.
     const directory = new URL('.', import.meta.url).pathname.replace(/\/$/, '');
     const gateway = readFileSync(`${directory}/conversation-runtime.ts`, 'utf8');
-    const policy = readFileSync(`${directory}/model-policy.ts`, 'utf8');
+    const channel = readFileSync(`${directory}/conversation-channel.ts`, 'utf8');
     expect(gateway).not.toContain('models: string[]');
     expect(gateway).not.toContain('input.models');
-    expect(policy).not.toContain('runtimeModelCandidates');
-    expect(policy).not.toContain('fallbackIndex');
+    expect(channel).not.toContain('runtimeModelCandidates');
+    expect(channel).not.toContain('fallbackIndex');
     expect(gateway).toContain('resolveModelProfile');
   });
 });

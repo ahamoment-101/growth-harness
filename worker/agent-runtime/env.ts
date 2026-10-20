@@ -30,9 +30,7 @@ export interface RuntimeAgentEnv {
   /** @deprecated Current model profiles use their configured provider endpoint directly. */
   AI_GATEWAY_ACCOUNT_ID?: string;
   AI_GATEWAY_NAME?: string;
-  AGENT_RUNTIME_PROBE_ENABLED: string;
   AGENT_RUNTIME_ENABLED?: string;
-  AGENT_RUNTIME_PROBE_WORKFLOW: RuntimeWorkflowBinding;
   AGENT_WORKFLOW: RuntimeWorkflowBinding;
   AGENT_SHELL: unknown;
   /** Live site rooms (worker/site-room); optional so tests and tools run without it. */

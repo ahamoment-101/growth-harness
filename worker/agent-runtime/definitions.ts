@@ -95,14 +95,10 @@ export type AgentDefinition = {
   contextBudgetBytes: number;
   tools: readonly string[];
   injectedTool: 'read_synthetic_context' | 'read_strategy_research_context' | null;
-  workflowBinding: 'AGENT_RUNTIME_PROBE_WORKFLOW' | 'AGENT_WORKFLOW';
+  workflowBinding: 'AGENT_WORKFLOW';
   inputSchema: typeof runtimeRunInputSchema;
   outputSchema: z.ZodType;
   conversationTools: readonly ConversationToolName[];
-  modelPolicy: {
-    route: 'runtime' | 'strategy' | 'topic' | 'content';
-    reasoning: 'none' | 'minimal' | 'low';
-  };
   // Per-request capacity and business capabilities. Cumulative usage is observed,
   // never a termination policy; the persisted audit owns continuation decisions.
   runPolicy: {
@@ -123,7 +119,6 @@ const DEFINITIONS: Record<AgentId, AgentDefinition> = {
     contextSources: [], contextBudgetBytes: 150_000, tools: [...LEADER_TOOL_NAMES, 'read_todo', 'write_todo', 'read_my_inbox', 'complete_inbox_event', 'decide_publication', 'review_topic_group', 'request_human_input'],
     injectedTool: null, workflowBinding: 'AGENT_WORKFLOW', inputSchema: runtimeRunInputSchema,
     outputSchema: z.unknown(), conversationTools: ['cancel_current_run'],
-    modelPolicy: { route: 'strategy', reasoning: 'low' },
     runPolicy: { allowScheduled: true, allowApprovals: false, allowSubAgents: true }, memoryPolicy: 'none',
   },
   runtime_synthetic: {
@@ -138,7 +133,6 @@ const DEFINITIONS: Record<AgentId, AgentDefinition> = {
     injectedTool: 'read_synthetic_context', workflowBinding: 'AGENT_WORKFLOW',
     inputSchema: runtimeRunInputSchema, outputSchema: syntheticOutputSchema,
     conversationTools: CONVERSATION_TOOL_NAMES,
-    modelPolicy: { route: 'runtime', reasoning: 'none' },
     runPolicy: { allowScheduled: true, allowApprovals: true, allowSubAgents: true },
     memoryPolicy: 'evidence_only',
   },
@@ -152,7 +146,6 @@ const DEFINITIONS: Record<AgentId, AgentDefinition> = {
     injectedTool: 'read_synthetic_context', workflowBinding: 'AGENT_WORKFLOW',
     inputSchema: runtimeRunInputSchema, outputSchema: syntheticOutputSchema,
     conversationTools: ['cancel_current_run'],
-    modelPolicy: { route: 'runtime', reasoning: 'none' },
     runPolicy: { allowScheduled: false, allowApprovals: false, allowSubAgents: false },
     memoryPolicy: 'evidence_only',
   },
@@ -167,7 +160,6 @@ const DEFINITIONS: Record<AgentId, AgentDefinition> = {
     injectedTool: null, workflowBinding: 'AGENT_WORKFLOW',
     inputSchema: runtimeRunInputSchema, outputSchema: z.unknown(),
     conversationTools: ['cancel_current_run', 'provide_run_input'],
-    modelPolicy: { route: 'strategy', reasoning: 'low' },
     // Bounds runaway execution; research depth and completion remain model decisions.
     runPolicy: { allowScheduled: false, allowApprovals: false, allowSubAgents: false },
     memoryPolicy: 'evidence_only',
@@ -186,7 +178,6 @@ const DEFINITIONS: Record<AgentId, AgentDefinition> = {
     injectedTool: null, workflowBinding: 'AGENT_WORKFLOW',
     inputSchema: runtimeRunInputSchema, outputSchema: strategyOutputSchema,
     conversationTools: CONVERSATION_TOOL_NAMES,
-    modelPolicy: { route: 'strategy', reasoning: 'low' },
     // Only per-request output capacity belongs in the business model configuration.
     runPolicy: { allowScheduled: false, allowApprovals: true, allowSubAgents: true },
 
@@ -201,7 +192,7 @@ const DEFINITIONS: Record<AgentId, AgentDefinition> = {
     tools: [],
     injectedTool: null, workflowBinding: 'AGENT_WORKFLOW', inputSchema: runtimeRunInputSchema,
     outputSchema: z.object({ task_id: z.string(), outcome: z.enum(['completed','partial','needs_input','no_findings','paused','failed','cancelled']), summary: z.string(), report: z.string(), findings: z.array(z.unknown()), unknowns: z.array(z.string()), sources: z.array(z.unknown()), reason: z.string(), questions: z.array(z.unknown()).default([]), completion_assessment: z.record(z.string(), z.string()).optional() }),
-    conversationTools: ['cancel_current_run'], modelPolicy: { route: 'runtime', reasoning: 'low' },
+    conversationTools: ['cancel_current_run'],
     runPolicy: { allowScheduled: false, allowApprovals: false, allowSubAgents: false },
     memoryPolicy: 'evidence_only',
   },
@@ -216,7 +207,6 @@ const DEFINITIONS: Record<AgentId, AgentDefinition> = {
     injectedTool: null, workflowBinding: 'AGENT_WORKFLOW',
     inputSchema: runtimeRunInputSchema, outputSchema: z.unknown(),
     conversationTools: ['cancel_current_run'],
-    modelPolicy: { route: 'strategy', reasoning: 'low' },
     runPolicy: { allowScheduled: false, allowApprovals: false, allowSubAgents: false },
     memoryPolicy: 'evidence_only',
   },
@@ -232,7 +222,6 @@ const DEFINITIONS: Record<AgentId, AgentDefinition> = {
     injectedTool: null, workflowBinding: 'AGENT_WORKFLOW',
     inputSchema: runtimeRunInputSchema, outputSchema: topicDecisionOutputSchema,
     conversationTools: ['cancel_current_run'],
-    modelPolicy: { route: 'topic', reasoning: 'low' },
     runPolicy: { allowScheduled: false, allowApprovals: false, allowSubAgents: false },
     memoryPolicy: 'evidence_only',
   },
@@ -249,7 +238,6 @@ const DEFINITIONS: Record<AgentId, AgentDefinition> = {
     injectedTool: null, workflowBinding: 'AGENT_WORKFLOW',
     inputSchema: runtimeRunInputSchema, outputSchema: contentProductionOutputSchema,
     conversationTools: ['cancel_current_run'],
-    modelPolicy: { route: 'content', reasoning: 'minimal' },
     runPolicy: { allowScheduled: false, allowApprovals: false, allowSubAgents: true, maxActiveChildren: 20 },
     memoryPolicy: 'evidence_only',
   },
@@ -258,12 +246,11 @@ const DEFINITIONS: Record<AgentId, AgentDefinition> = {
     id: 'article_production', taskBased: true, label: 'Article creation sub-agent',
     promptLabel: 'Article Production Sub-Agent',
     mission: 'Complete one topic task independently, use submission feedback to repair the source article and required localized versions, write from business facts and evidence, and explicitly defer when responsible completion is not possible.',
-    definitionVersion: 21, hitlSinceVersion: 19, promptVersion: 'article-production-agent-loop-v17-hitl-english-v2',
+    definitionVersion: 23, hitlSinceVersion: 19, promptVersion: 'article-production-agent-loop-v19-editorial-readiness',
     // submit_article remains declared for pinned v16 tasks; v17 tasks find link targets, save, check and deliver.
     contextSources: ['article_task'], contextBudgetBytes: 80_000, tools: ['read_article_source', 'save_claim_evidence', 'read_published_articles', 'article_search_web', 'find_link_targets', 'submit_article', 'save_article_draft', 'run_self_check', 'deliver_article', 'defer_article', 'request_human_input'], injectedTool: null, workflowBinding: 'AGENT_WORKFLOW',
     inputSchema: runtimeRunInputSchema, outputSchema: articleProductionOutputSchema,
     conversationTools: ['cancel_current_run'],
-    modelPolicy: { route: 'content', reasoning: 'low' },
     runPolicy: { allowScheduled: false, allowApprovals: false, allowSubAgents: false },
     memoryPolicy: 'none',
   },
@@ -276,7 +263,6 @@ const DEFINITIONS: Record<AgentId, AgentDefinition> = {
     contextSources: ['content_review_task'], contextBudgetBytes: 210_000, tools: ['read_article_source', 'submit_content_review', 'defer_content_review', 'request_human_input'], injectedTool: null, workflowBinding: 'AGENT_WORKFLOW',
     inputSchema: runtimeRunInputSchema, outputSchema: contentReviewOutputSchema,
     conversationTools: ['cancel_current_run'],
-    modelPolicy: { route: 'content', reasoning: 'low' },
     runPolicy: { allowScheduled: false, allowApprovals: false, allowSubAgents: false },
     memoryPolicy: 'none',
   },

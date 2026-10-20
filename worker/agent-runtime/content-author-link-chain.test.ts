@@ -11,6 +11,7 @@ import { beginTaskDecision, finishTaskOperation, requireTask, setTaskAction } fr
 import { contentProductionGroupPayload, contentProductionPayload, type ArticleTask, type ContentReviewTask } from './content-production';
 import type { AgentModuleExecutionContext } from './agent-modules';
 import type { AgentRun } from './protocol';
+import { AUTHOR_CONTENT_LINK_REQUIREMENTS, AUTHOR_CONTENT_LINK_REQUIREMENT_INSTRUCTIONS } from './content-link-policy';
 
 // One article through the user-facing chain with real tool executors and SQLite; only model calls and Workflow starts are replaced.
 vi.mock('./conversation-runtime', () => ({ runConversationTask: vi.fn(async () => ({ status: 'waiting', output: {} })) }));
@@ -31,6 +32,9 @@ it('dispatches, writes with author links, reviews content and links, revises and
   const parent = vi.mocked(runConversationTask).mock.calls.at(-1)![0];
   expect(parent.agent.tools(f.p.task, f.op).names().filter((name: string) => /link|read_content|published/.test(name))).toEqual([]);
   expect(parent.agent.instructions).toContain('Authors place internal links while writing');
+  expect(parent.agent.instructions).toContain(AUTHOR_CONTENT_LINK_REQUIREMENT_INSTRUCTIONS);
+  expect(await parent.agent.context(f.p.task)).toMatchObject({ internal_linking: { requirements: AUTHOR_CONTENT_LINK_REQUIREMENTS,
+    product_targets: [{ locale: 'en', kind: 'product', link: 'https://example.com/product', verification: 'site_configuration' }] } });
   await finishTaskOperation(f.p.env.DB, f.p.task, f.op, {});
 
   const parentCall = async (name: string, observation: Record<string, unknown>, extra: Record<string, unknown> = {}) => {

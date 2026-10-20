@@ -5,7 +5,6 @@
 ```bash
 npm ci
 npm run setup -- --local
-npm run config:check
 npm run dev
 ```
 
@@ -68,4 +67,4 @@ node scripts/report-agent-requests.mjs <run-id> --local
 node scripts/report-agent-requests.mjs <run-id> --remote --config wrangler.jsonc
 ```
 
-Select `--local` or `--remote` explicitly. The database defaults to the selected configuration/environment's `DB` binding. `--env <environment>` chooses a Wrangler environment and `--database <name>` selects a different database intentionally. Confirm the configuration/account before a remote read, and keep operational reports private. `DEV_TOOLS_ENABLED` should remain `false` unless an owner deliberately enables development fixtures.
+Select `--local` or `--remote` explicitly. The database defaults to the selected configuration/environment's `DB` binding. `--env <environment>` chooses a Wrangler environment and `--database <name>` selects a different database intentionally. Confirm the configuration/account before a remote read, and keep operational reports private.

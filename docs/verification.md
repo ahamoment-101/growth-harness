@@ -2,24 +2,39 @@
 
 Verification should identify the exact source candidate, configuration and evidence class. A build proves packaging; an HTTP 200 proves a response; neither alone proves a complete Agent task or publication.
 
-## Automated and isolated checks
+## Local checks
 
 ```sh
 npm test
-npm run test:sync
+node --test scripts/d1-target.test.mjs scripts/sanitize-build.test.mjs scripts/check-public-boundary.test.mjs
 npm run build
-node --test scripts/sanitize-build.test.mjs
 node scripts/verify-installation-local.mjs
 npm run verify:self-hosting:local
 ```
 
-The default unit suite does not require paid service credentials. Optional live tests remain opt-in. Installation and Workflow fixtures use isolated local resources and explicitly synthetic model replies. The real Worker, D1 and Workflow engine may execute while their external model responses are synthetic; record that distinction.
+Run these from the repository root on macOS, Linux or Windows. They need no paid credentials: installation and Workflow fixtures use isolated resources and synthetic model replies while exercising the real Worker, D1 and Workflow engine.
 
-For upstream/downstream maintenance, run tests, synchronization checks and build independently in both distributions. Confirm private extension preservation and no shared-core drift. See [repository maintenance](repository-maintenance.md).
+CI also checks source/build boundaries, Git history credentials and dependency advisories. Builds remove Cloudflare preview environment files and reject configured local credential values in distributable output. The current-source boundary check keeps private adapters, environment/data files, internal material, `design/` and `.zcode/` out of the public tree. Downstream synchronization and public source exports have separate [maintainer checks](repository-maintenance.md).
 
 ## Live model and publication acceptance
 
 Use explicitly authorized service credentials in ignored local files or deployment Secrets, a dedicated test site and separate test storage. Do not run a billable acceptance merely because a key is present.
+
+For a minimal transport probe using the selected registry profile, opt in explicitly. It sends synthetic input without business writes:
+
+```sh
+# macOS / Linux
+MODEL_TRANSPORT_LIVE_VERIFY=1 npx vitest run worker/lib/model-channel.live.test.ts
+```
+
+```powershell
+# Windows PowerShell
+$env:MODEL_TRANSPORT_LIVE_VERIFY = '1'
+try { npx vitest run worker/lib/model-channel.live.test.ts }
+finally { Remove-Item Env:MODEL_TRANSPORT_LIVE_VERIFY }
+```
+
+This verifies only the chosen endpoint/model. To verify a complete publication:
 
 1. Verify the actual selected endpoint, model, serialized request and decoded tool result. A compatible gateway verifies that route, not the native official service or another preset.
 2. Start the normal content path with attributable business facts and an approved test topic. Observe the editor, author, fresh self-check, independent review and any revision through their actual registered tools.
@@ -30,8 +45,4 @@ Use explicitly authorized service credentials in ignored local files or deployme
 
 Record assisted recovery, operator configuration changes, unsuccessful requests and unverified scopes. Missing usage is unknown billing rather than zero cost. Do not infer topic discovery, real demand, rankings, cross-task learning or automatic failover from one successful article.
 
-## Publication boundary
-
-Before releasing source, review the whole candidate manifest and run source/history credential checks, public-distribution checks and build-output scanning. Include internal documents, business material, resource identifiers and demo/development entry points in that review, not just key patterns. A fresh isolated export/clone must reproduce the candidate and checks.
-
-Public reports can state methods, aggregate results and limits without account IDs, internal site/task references, customer content or raw conversations. Keep operational receipts, recovery bundles and private adapter evidence in a private distribution or ignored local storage.
+Keep operational receipts and raw conversations private. Public reports can state methods, aggregate results and limits without credentials, account identifiers or customer material.

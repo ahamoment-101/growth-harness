@@ -1,19 +1,12 @@
 // Real configured model decision against a disposable full-schema D1 fixture. No remote business writes.
+import { localConfiguration } from './configuration.ts';
 import { readFile, mkdir } from 'node:fs/promises';
 import { build } from 'esbuild';
 import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 
-const values = {};
-for (const line of (await readFile('.dev.vars', 'utf8')).split('\n')) {
-  const match = line.match(/^([A-Z][A-Z0-9_]*)=(.*)$/);
-  if (match) values[match[1]] = match[2].trim().replace(/^['"]|['"]$/g, '');
-}
-if (!values.MODEL_REGISTRY) {
-  const config = await readFile('wrangler.jsonc', 'utf8');
-  values.MODEL_REGISTRY = JSON.parse(config.match(/"MODEL_REGISTRY"\s*:\s*("(?:\\.|[^"\\])*")/)[1]);
-}
+const { env: values } = localConfiguration();
 const output = resolve('.wrangler/leader-publication-live/evaluation.mjs');
 await mkdir(resolve('.wrangler/leader-publication-live'), { recursive: true });
 await build({ stdin: { resolveDir: process.cwd(), contents: `

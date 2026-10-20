@@ -19,7 +19,6 @@
 
 ## Maintain and release
 
-- [Upstream/downstream maintenance](repository-maintenance.md).
-- [Public release checklist](open-source-readiness.md) and [history boundary](public-history-cleanup.md).
+- [Repository maintenance](repository-maintenance.md): downstream synchronization, public exports and history review.
 
 Architecture and design documents describe contracts or intended behavior. They are not proof that a particular account, provider or deployment has passed acceptance. Internal deployment receipts, customer handover material and raw conversations are excluded from this documentation set.

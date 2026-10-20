@@ -8,7 +8,6 @@ import type { RuntimeAgentEnv, RuntimeWorkflowBinding, RuntimeWorkflowInstance }
 function runtimeEnv(workflow: RuntimeWorkflowBinding): RuntimeAgentEnv {
   return {
     AGENT_WORKFLOW: workflow,
-    AGENT_RUNTIME_PROBE_WORKFLOW: workflow,
   } as RuntimeAgentEnv;
 }
 

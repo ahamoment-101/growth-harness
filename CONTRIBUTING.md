@@ -5,18 +5,8 @@ Start with [README](README.md), [configuration](docs/configuration.md) and
 All package downloads use the official npm registry. Never commit credentials,
 production resource maps, customer content or real model conversations.
 
-## Local checks
-
-```sh
-npm test
-npm run build
-node --test scripts/sanitize-build.test.mjs
-node scripts/verify-installation-local.mjs
-npm run verify:self-hosting:local
-```
-
-These checks use local resources and synthetic model responses. Paid provider tests
-are opt-in and require your own keys; a mock response does not prove provider support.
+Follow the [local verification checklist](docs/verification.md#local-checks) before a PR.
+It uses local resources and synthetic model responses. Paid provider tests are opt-in.
 CI runs without production credentials and never deploys a pull request.
 
 Worker features live near their domain, HTTP routes in `worker/index.ts`, persistence

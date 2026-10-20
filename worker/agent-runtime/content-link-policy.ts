@@ -4,6 +4,13 @@ import { ToolContractError } from './tool-failure';
 
 /** User-approved editorial limit, not an SEO quality score or shared Runtime policy. */
 export const MAX_CONTENT_INTERNAL_LINKS = 3;
+export const MIN_CONTENT_INTERNAL_LINKS = 1;
+export const AUTHOR_CONTENT_LINK_REQUIREMENTS = {
+  contract_version: 1, owner: 'author', minimum_per_locale: MIN_CONTENT_INTERNAL_LINKS,
+  maximum_per_locale: MAX_CONTENT_INTERNAL_LINKS, product_page: 'include',
+  external_evidence_citations_count: false,
+} as const;
+export const AUTHOR_CONTENT_LINK_REQUIREMENT_INSTRUCTIONS = `Each locale's body must contain between ${MIN_CONTENT_INTERNAL_LINKS} and ${MAX_CONTENT_INTERNAL_LINKS} internal links, including the product page. Do not add links to reach a number; choose the most useful ones. External evidence citations do not count. Choose targets in each locale version's own language.`;
 export type ContentLinkPolicy = {
   blog_origin: string;
   product_origin: string;
@@ -17,6 +24,27 @@ export function contentLinkPolicy(site: Record<string, unknown>): ContentLinkPol
     product_origin: String(site.product_origin || ''),
     hub_path: String(site.hub_path || '/'),
     hub_urls: parseHubUrls(String(site.hub_urls_json || '{}')),
+  };
+}
+
+/** The same configured product target returned by the author's find_link_targets. */
+export function contentProductLink(policy: ContentLinkPolicy, locale: string): string {
+  if (policy.hub_urls[locale]) return policy.hub_urls[locale];
+  if (!policy.product_origin) return '';
+  try { return new URL(policy.hub_path || '/', policy.product_origin).href; } catch { return ''; }
+}
+
+/** Configuration is target identity evidence, not a page fetch or a product capability claim. */
+export function authorContentLinkContext(policy: ContentLinkPolicy, locales: string[]) {
+  return {
+    requirements: AUTHOR_CONTENT_LINK_REQUIREMENTS,
+    policy: { blog_origin: policy.blog_origin, product_origin: policy.product_origin, hub_path: policy.hub_path, hub_urls: policy.hub_urls },
+    product_targets: [...new Set(locales)].flatMap(locale => {
+      const link = contentProductLink(policy, locale);
+      return /^https?:\/\//i.test(link) ? [{ locale, kind: 'product' as const, title: 'Configured product page', link,
+        verification: 'site_configuration' as const }] : [];
+    }),
+    evidence_scope: 'The host derives target identity from site configuration, published records or sibling assignments. Configuration alone does not establish HTTP reachability, public availability, page contents or product capabilities. Separately supplied business facts and observations can support those claims within their stated scope; evaluate them before declaring support missing. Assess a local-preview URL against the explicitly intended publication environment, distinguishing local access from public availability. Target kind alone does not support claims about what that page provides.',
   };
 }
 
@@ -62,6 +90,7 @@ export const PARENT_INTERNAL_LINK_INSTRUCTIONS = `You own internal-link editing 
 
 /** Parent instructions from definition v20, when authors own internal links. */
 export const PARENT_AUTHOR_LINK_INSTRUCTIONS = 'Authors place internal links while writing and the independent reviewer checks them. You do not read drafts or edit links. When the group needs a particular connection, such as a published page or sibling article an article should lead to, state that direction in the editorial brief.';
+export const PARENT_AUTHOR_LINK_REQUIREMENTS_INSTRUCTIONS = `${PARENT_AUTHOR_LINK_INSTRUCTIONS} ${AUTHOR_CONTENT_LINK_REQUIREMENT_INSTRUCTIONS} Your editorial brief and revision guidance must preserve this assigned link contract. Do not ask authors to remove all internal links or prohibit the configured product link. Use the supplied link policy and configured target facts without inventing product claims or target contents. If verified facts cannot support a useful permitted link, describe the conflict and defer for the missing facts rather than inventing a target or silently waiving the contract.`;
 
 export const AUTHOR_INTERNAL_LINK_INSTRUCTIONS = 'The parent editor owns final internal-link selection. On revision, use previous_candidate as the current draft rather than regenerating your earlier submission. Preserve applicable parent edits and evidence citations; explain any link changes required by substantive revisions. Refresh evidence and coverage locations to match the submitted text.';
 export const REVIEW_INTERNAL_LINK_INSTRUCTIONS = 'Assess final internal links for contextual usefulness, descriptive anchors and reading flow. Zero links is valid and the maximum is not a quota. Inspect supplied internal_link_edit target snapshots when available; distinguish published links from pending sibling references. Do not claim independent target verification beyond the material and tools you actually read.';
@@ -81,14 +110,12 @@ export async function describeContentInternalLinks(db: D1Database, input: {
   if (input.policy.product_origin) { try { productUrls.add(new URL(input.policy.hub_path || '/', input.policy.product_origin).href); } catch { /* unconfigured */ } }
   const published = new Map<string, Array<{ locale: string; title: string; excerpt: string; slug: string }>>();
   for (const version of input.versions) {
-    const pattern = /(!?)\[([^\]]+)\]\(([^)\s]+)[^)]*\)/g;
-    let match: RegExpExecArray | null;
-    while ((match = pattern.exec(version.content)) !== null) {
-      if (match[1] || !isContentInternalLink(match[3], input.policy)) continue;
-      const start = version.content.lastIndexOf('\n', match.index) + 1;
-      const endLine = version.content.indexOf('\n', match.index + match[0].length);
-      const sentence = version.content.slice(start, endLine < 0 ? undefined : endLine).trim().slice(0, 600);
-      const href = match[3];
+    const renderedLinks: Array<Pick<DescribedInternalLink, 'href' | 'anchor_text' | 'sentence'>> = [];
+    markdownToHtml(version.content, (href, context) => {
+      if (isContentInternalLink(href, input.policy)) renderedLinks.push({ href, anchor_text: context.anchor, sentence: context.source.trim().slice(0, 600) });
+      return href;
+    });
+    for (const { href, anchor_text, sentence } of renderedLinks) {
       let target: DescribedInternalLink['target'] = { kind: 'site_url', title: '', excerpt: '', url: href };
       if (href.startsWith('article:')) {
         const jobId = href.slice('article:'.length);
@@ -109,7 +136,7 @@ export async function describeContentInternalLinks(db: D1Database, input: {
             : { kind: 'unavailable', title: '', excerpt: '', url: '' };
         }
       } else if (productUrls.has(href)) target = { kind: 'product', title: 'Configured product page', excerpt: '', url: href };
-      links.push({ locale: version.locale, anchor_text: match[2], sentence, href, target });
+      links.push({ locale: version.locale, anchor_text, sentence, href, target });
     }
   }
   return links;

@@ -9,7 +9,7 @@ import { saveSlot } from './parameter-slots';
 import { persistRuntimeJson, readRuntimeJson } from './runtime-content';
 import { ToolExecutionError } from './tool-failure';
 import { ARTICLE_SELF_CHECK_INSTRUCTIONS } from './content-self-check';
-import { describeContentInternalLinks } from './content-link-policy';
+import { AUTHOR_CONTENT_LINK_REQUIREMENTS, AUTHOR_CONTENT_LINK_REQUIREMENT_INSTRUCTIONS, describeContentInternalLinks } from './content-link-policy';
 import type { ArticleTask } from './content-production';
 import type { AgentModuleExecutionContext } from './agent-modules';
 import type { CoveragePlan } from './content-editorial';
@@ -23,12 +23,12 @@ const answer = 'State the next step clearly.';
 const linked = (links: string) => `## Reply\n\nIn today's fast-paced world, replies matter.\n\n${answer}\n\n${links}`;
 const oneLink = linked('Use a [reply checklist](article:old) before sending.');
 
-async function authorFixture() {
+async function authorFixture(overrides: Partial<ArticleTask> = {}) {
   const f = await contentLinkFixture();
   const article: ArticleTask = { editorial_contract_version: 2, author_link_contract: 1, coverage_plan: plan, group_id: 'g', job_id: 'j', decision_group_id: 'decision', decision_item_id: 'item', source_locale: 'en', locales: ['en'],
     hub_path: '/product', hub_urls: {}, product_origin: 'https://example.com', blog_origin: 'https://blog.example.com', published_articles: [],
     group_articles: [{ job_id: 'sib', title_direction: 'Reply templates for customers', primary_keyword: 'reply templates', locale: 'en' }],
-    topic: { primary_keyword: 'reply' }, group: {}, business_context: ['Product writes nothing for users'], strategy_context: [], evidence: [], attempt: 2, editorial_brief: 'Practical reply guide', parent_feedback: [], previous_artifact_id: 'draft' };
+    topic: { primary_keyword: 'reply' }, group: {}, business_context: ['Product writes nothing for users'], strategy_context: [], evidence: [], attempt: 2, editorial_brief: 'Practical reply guide', parent_feedback: [], previous_artifact_id: 'draft', ...overrides };
   const a = await f.task('author', 'article_production', article);
   const run = f.sqlite.prepare('select * from agent_runs where id=?').get('author');
   await runArticleConversation({ env: a.env, run, definition: agentDefinition('article_production') } as AgentModuleExecutionContext);
@@ -80,9 +80,14 @@ describe('author-owned internal links and fresh self-check', () => {
     vi.mocked(isolatedReview).mockResolvedValueOnce({ summary: 'The opening is boilerplate', findings: [{ category: 'ai_style', locale: 'en', quote: "In today's fast-paced world, replies matter.", problem: 'Boilerplate opening', suggestion: 'Give the reply steps directly' }] });
     const saved = (await f.call('save_article_draft', f.draft(oneLink), 'author:save-1')).output;
     const request = vi.mocked(isolatedReview).mock.calls[0][0];
-    expect(request.instructions).toBe(ARTICLE_SELF_CHECK_INSTRUCTIONS);
+    expect(request.instructions).toContain(ARTICLE_SELF_CHECK_INSTRUCTIONS);
+    expect(request.instructions).toContain(AUTHOR_CONTENT_LINK_REQUIREMENT_INSTRUCTIONS);
     // The fresh session receives the saved text and requirements, never the author's conversation.
-    expect(Object.keys(request.material as object).sort()).toEqual(['article', 'product_facts', 'requirements', 'stated_contract']);
+    expect(Object.keys(request.material as object).sort()).toEqual(['article', 'internal_linking', 'product_facts', 'requirements', 'stated_contract']);
+    expect(request.material).toMatchObject({ internal_linking: { requirements: AUTHOR_CONTENT_LINK_REQUIREMENTS,
+      links: [{ href: 'article:old', target: { kind: 'published', title: 'Checklist' } }] } });
+    expect(Object.keys((request.material as { internal_linking: { policy: object } }).internal_linking.policy).sort())
+      .toEqual(['blog_origin', 'hub_path', 'hub_urls', 'product_origin']);
     expect(saved).toMatchObject({ accepted: true, draft_ref: expect.any(String), check_ref: expect.any(String), self_check: { findings: [{ id: 'f1', category: 'ai_style' }] } });
     expect(f.sqlite.prepare("select count(*) n from content_artifacts where job_id='j' and child_run_id='author' and submission_operation_id like 'author:%'").get()).toEqual({ n: 0 });
 
@@ -100,6 +105,59 @@ describe('author-owned internal links and fresh self-check', () => {
     const contract = await readRuntimeJson<Record<string, any>>(f.db, row.seo_contract_json);
     expect(contract.self_check).toMatchObject({ summary: 'Ready to deliver', declined_findings: [{ finding_id: 'f1' }] });
     expect(contract).not.toHaveProperty('link_spots');
+  });
+
+  it('shows a conflicting brief, the assigned link requirement and configured preview target without inventing target capabilities', async () => {
+    const preview = 'http://127.0.0.1:5402/live/fixture';
+    const brief = 'This article must be self-contained, with no internal links or product references.';
+    const f = await authorFixture({ product_origin: 'http://127.0.0.1:5402', hub_path: '/live/fixture', hub_urls: { en: preview },
+      editorial_brief: brief, business_context: ['No confirmed product capabilities are available.'] });
+    const finding = { category: 'product_boundary', locale: 'en', quote: 'shared workspace',
+      problem: 'The supplied target configuration does not establish that this page is a workspace.', suggestion: 'Use an accurate description or explain the missing facts.' };
+    vi.mocked(isolatedReview).mockResolvedValueOnce({ summary: 'Assess the supported target description', findings: [finding] });
+    const saved = (await f.call('save_article_draft', f.draft(linked(`Use the [shared workspace](${preview}).`)), 'author:save-preview')).output;
+    const request = vi.mocked(isolatedReview).mock.calls[0][0];
+    expect(request.material).toMatchObject({ requirements: { editorial_brief: brief }, product_facts: ['No confirmed product capabilities are available.'],
+      internal_linking: { requirements: AUTHOR_CONTENT_LINK_REQUIREMENTS,
+        product_targets: [{ locale: 'en', kind: 'product', link: preview, verification: 'site_configuration' }],
+        links: [{ anchor_text: 'shared workspace', target: { kind: 'product', title: 'Configured product page', excerpt: '', url: preview } }] } });
+    expect(request.instructions).toContain('An editorial brief or revision request does not waive that assigned contract');
+    expect(request.instructions).toContain('Configuration alone does not establish');
+    expect((request.material as { internal_linking: { evidence_scope: string } }).internal_linking.evidence_scope).toContain('does not establish HTTP reachability');
+    expect(saved).toMatchObject({ accepted: true, self_check: { findings: [{ id: 'f1', ...finding }] } });
+    const delivered = await f.call('deliver_article', { draft_ref: saved.draft_ref, check_ref: saved.check_ref,
+      declined_findings: [{ finding_id: 'f1', reason: 'Owner supplied this target as navigation; no workspace capability is claimed.' }], judgment_summary: 'Deliver with the explicit disposition' }, 'author:deliver-preview');
+    expect(delivered.completion).toMatchObject({ status: 'waiting', outcome: 'submitted' });
+  });
+
+  it('preserves supplied facts and disputed findings through a reasoned delivery without changing the checked text', async () => {
+    const facts = ['The product publishes a public recipe index. It does not host cooking classes.'];
+    const f = await authorFixture({ business_context: facts, editorial_brief: 'A guide for readers of the recipe index.' });
+    const content = linked('Browse the [recipe index](https://example.com/product).');
+    const findings = [
+      { category: 'product_boundary', locale: 'en', quote: 'recipe index', problem: 'The configured address alone cannot prove this is an index.', suggestion: 'Remove the index description.' },
+      { category: 'direct_answer', locale: 'en', quote: answer, problem: 'The answer is already clear; no change is needed.', suggestion: 'No change.' },
+    ];
+    vi.mocked(isolatedReview).mockResolvedValueOnce({ recommendation: 'ready_for_review', summary: 'Editorial observations', findings });
+    const saved = (await f.call('save_article_draft', f.draft(content), 'author:save-facts')).output;
+    expect(vi.mocked(isolatedReview).mock.calls[0][0].material).toMatchObject({ product_facts: facts });
+    // Do not silently remove a finding by matching its wording. The author owns its disposition.
+    expect(saved.self_check.findings).toHaveLength(2);
+    expect(saved.self_check.recommendation).toBe('ready_for_review');
+    const declined_findings = [
+      { finding_id: 'f1', reason: 'The supplied product facts explicitly say it publishes a recipe index; this is not inferred from its address.' },
+      { finding_id: 'f2', reason: 'The quoted answer already satisfies the requirement and the observation requests no change.' },
+    ];
+    const delivered = await f.call('deliver_article', { draft_ref: saved.draft_ref, check_ref: saved.check_ref,
+      declined_findings, judgment_summary: 'Deliver the supported text for independent review.' }, 'author:deliver-facts');
+    expect(delivered.completion).toMatchObject({ status: 'waiting', outcome: 'submitted' });
+    const row = f.sqlite.prepare('select versions_json, seo_contract_json from content_artifacts where id=?')
+      .get(delivered.output.artifact_id) as { versions_json: string; seo_contract_json: string };
+    const versions = await readRuntimeJson<Array<{ content: string }>>(f.db, row.versions_json);
+    const contract = await readRuntimeJson<{ self_check: { declined_findings: unknown[] } }>(f.db, row.seo_contract_json);
+    expect(versions[0].content).toBe(content);
+    expect(contract.self_check.declined_findings).toEqual(declined_findings);
+    expect(isolatedReview).toHaveBeenCalledTimes(1);
   });
 
   it('keeps a saved draft when the fresh check is unusable and rejects drafts from an earlier assignment', async () => {

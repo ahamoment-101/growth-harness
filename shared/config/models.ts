@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { AGENT_IDS, type AgentId } from '../agent-ids.ts';
 import { normalizeModelRegistry, supportedModelDialects } from './model-extensions.ts';
+import modelDefaults from './agent-models.json' with { type: 'json' };
+
+export const REASONING_EFFORTS = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
+export type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
 
 export const MODEL_PROTOCOLS = ['openai-chat', 'openai-responses', 'anthropic-messages'] as const;
 export type ModelProtocol = (typeof MODEL_PROTOCOLS)[number];
@@ -37,6 +41,7 @@ export type ResolvedModelProfile = ModelProfile & {
   headers?: Record<string, string>;
   apiKey: string;
   keyName: string;
+  reasoningEffort?: ReasoningEffort;
 };
 
 export interface ModelRegistryEnv {
@@ -96,6 +101,8 @@ const registrySchema = z.object({
   version: z.literal(2),
   defaultProfile: z.string().trim().min(1),
   agentProfiles: z.record(z.string(), z.string().trim().min(1)),
+  defaultReasoning: z.enum(REASONING_EFFORTS).default('low'),
+  agentReasoning: z.record(z.string(), z.enum(REASONING_EFFORTS)).default({}),
   connections: z.record(z.string(), connectionSchema),
   profiles: z.record(z.string(), profileSchema),
 }).strict();
@@ -104,12 +111,11 @@ export type ModelRegistry = z.infer<typeof registrySchema>;
 export type ModelConnection = z.infer<typeof connectionSchema>;
 
 export function parseModelRegistry(env: ModelRegistryEnv): ModelRegistry {
-  if (!env.MODEL_REGISTRY?.trim()) throw new Error('MODEL_REGISTRY is not configured');
   let registry: ModelRegistry;
   // Schema errors can contain rejected values; never expose them to clients or logs.
-  try { registry = registrySchema.parse(normalizeModelRegistry(JSON.parse(env.MODEL_REGISTRY))); }
+  try { registry = registrySchema.parse(normalizeModelRegistry(env.MODEL_REGISTRY?.trim() ? JSON.parse(env.MODEL_REGISTRY) : modelDefaults)); }
   catch { throw new Error('MODEL_REGISTRY is invalid. Use version 2 connections, registered protocols and complete model capabilities; keep credentials in environment variables.'); }
-  const unknownAgents = Object.keys(registry.agentProfiles).filter(id => !AGENT_IDS.includes(id as AgentId));
+  const unknownAgents = [...new Set([...Object.keys(registry.agentProfiles), ...Object.keys(registry.agentReasoning)])].filter(id => !AGENT_IDS.includes(id as AgentId));
   if (unknownAgents.length) throw new Error(`MODEL_REGISTRY contains unknown Agent IDs: ${unknownAgents.join(', ')}`);
   const referenced = new Set([registry.defaultProfile, ...Object.values(registry.agentProfiles)]);
   const missing = [...referenced].filter(id => !registry.profiles[id]);

@@ -1,6 +1,5 @@
 // Opt-in: two synthetic physical requests, no domain tools or production writes.
-// @ts-ignore Test-only Node API.
-import { readFileSync } from 'node:fs';
+import { localConfiguration } from '../../scripts/configuration';
 import { expect, it } from 'vitest';
 import type { Context } from '@earendil-works/pi-ai';
 import { taskTestDb } from './task-test-db';
@@ -16,11 +15,7 @@ import type { RuntimeAgentEnv, RuntimeWorkflowStep } from './env';
 // @ts-ignore Test-only Node environment.
 const enabled = process.env.CACHE_LIVE_VERIFY === '1';
 it.skipIf(!enabled)('preserves the serialized prefix across two durable decisions and reports actual cache usage', async () => {
-  const vars: Record<string, string> = {};
-  for (const line of readFileSync('.dev.vars', 'utf8').split('\n')) {
-    const match = line.match(/^([A-Z][A-Z0-9_]*)=(.*)$/);
-    if (match) vars[match[1]] = match[2].trim().replace(/^['"]|['"]$/g, '');
-  }
+  const { env: vars } = localConfiguration();
   const f = taskTestDb();
   const task = await attachTask(f.db, f.run(), agentDefinition('strategy_research'));
   const env = { ...vars, DB: f.db } as RuntimeAgentEnv;

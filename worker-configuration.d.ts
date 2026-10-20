@@ -1,4 +1,3 @@
-import type { AgentRuntimeProbe } from './worker/agent-runtime/agent';
 import type { AgentShell } from './worker/agent-runtime/shell';
 
 declare global {
@@ -7,8 +6,6 @@ interface Env {
   DB: D1Database;
   PUBLISH_WORKFLOW: Workflow;
   LOCALIZE_WORKFLOW: Workflow;
-  AGENT_RUNTIME_PROBE: DurableObjectNamespace<AgentRuntimeProbe>;
-  AGENT_RUNTIME_PROBE_WORKFLOW: Workflow;
   AGENT_SHELL: DurableObjectNamespace<AgentShell>;
   SITE_ROOM: DurableObjectNamespace<import('./worker/site-room/room').SiteRoom>;
   AGENT_WORKFLOW: Workflow;
@@ -24,7 +21,6 @@ interface Env {
   CF_VERSION_METADATA?: WorkerVersionMetadata;
   AI_GATEWAY_ACCOUNT_ID?: string;
   AI_GATEWAY_NAME?: string;
-  AGENT_RUNTIME_PROBE_ENABLED: string;
   AGENT_RUNTIME_ENABLED: string;
   /** @deprecated Management requests always require authentication. */
   APP_AUTH_MODE?: string;
@@ -35,7 +31,6 @@ interface Env {
   AUTH_GOOGLE_CLIENT_SECRET?: string;
   AUTH_SESSION_SECRET?: string;
   CLOUDFLARE_WORKER_NAME?: string;
-  DEV_TOOLS_ENABLED?: string;
   CLOUDFLARE_ACCOUNT_ID: string;
   CNAME_TARGET: string;
   CLOUDFLARE_API_TOKEN?: string;

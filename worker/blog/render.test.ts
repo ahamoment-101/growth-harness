@@ -437,20 +437,28 @@ describe('live article lookup', () => {
     expect(html).toContain('<p class="summary-label">Summary</p>');
   });
 
-  it('localizes the summary label and falls back to English', () => {
+  it.each(['zh', 'zh-CN', 'zh-Hant'])('uses English shell copy and dates for %s content', (locale) => {
     const zhSite = site();
     const zhJob = job({
       versions_json: JSON.stringify([{
-        locale: 'zh', slug: 'ni-hao', title: 'Hello', excerpt: 'Excerpt', content: 'Body',
+        locale, slug: 'ni-hao', title: 'Hello', excerpt: 'Excerpt', content: 'Body',
       }]),
     });
     const zhHtml = renderArticleHtml(
       'https://blog.publisher.example.org',
       zhSite,
-      findLiveArticle([zhJob], 'zh', 'ni-hao')!,
+      findLiveArticle([zhJob], locale, 'ni-hao')!,
     );
-    expect(zhHtml).toContain('<p class="summary-label">\u6458\u8981</p>');
+    expect(zhHtml).toContain('<p class="summary-label">Summary</p>');
+    expect(zhHtml).toContain('Back to blog');
+    expect(zhHtml).toContain('All posts');
+    expect(zhHtml).toContain('>Home</a>');
+    expect(zhHtml).toContain('August 18, 2026');
+    expect(zhHtml).toContain(`lang="${locale}"`);
+    expect(zhHtml).not.toMatch(/[\u3400-\u9fff]/u);
+  });
 
+  it('falls back to English summary labels for uncovered locales', () => {
     const xxJob = job({
       versions_json: JSON.stringify([{
         locale: 'xx', slug: 'hello', title: 'Hi', excerpt: 'Ex', content: 'Body.',
@@ -458,7 +466,7 @@ describe('live article lookup', () => {
     });
     const xxHtml = renderArticleHtml(
       'https://blog.publisher.example.org',
-      zhSite,
+      site(),
       findLiveArticle([xxJob], 'xx', 'hello')!,
     );
     expect(xxHtml).toContain('<p class="summary-label">Summary</p>');

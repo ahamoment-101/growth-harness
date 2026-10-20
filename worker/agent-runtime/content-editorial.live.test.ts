@@ -1,7 +1,6 @@
 // Opt-in synthetic checks against the configured production model adapters.
 // No remote database writes or article publication.
-// @ts-ignore Node test-only API.
-import { readFileSync } from 'node:fs';
+import { localConfiguration } from '../../scripts/configuration';
 import { expect, it } from 'vitest';
 import { runAgentLoopContinue, type AgentContext } from '@earendil-works/pi-agent-core';
 import type { Message } from '@earendil-works/pi-ai';
@@ -33,8 +32,7 @@ const cases: Array<{ agent: AgentId; name: string; schema: z.ZodType; prompt: st
     verify: value => { expect(value.decision).toBe('revise');expect(value.coverage_findings.some((f:any)=>f.requirement_id==='reply-example')).toBe(true);expect(value.evidence_findings.some((f:any)=>f.claim_id==='claim-1')).toBe(true);expect(value.required_changes.length).toBeGreaterThan(0); } },
 ];
 for (const test of cases) it.skipIf(!enabled)(`serializes ${test.agent} editorial contract and preserves evidence boundaries on the real endpoint`, async () => {
-  const vars: Record<string,string>={};
-  for(const line of readFileSync('.dev.vars','utf8').split('\n')) { const m=line.match(/^([A-Z][A-Z0-9_]*)=(.*)$/);if(m)vars[m[1]]=m[2].trim().replace(/^['"]|['"]$/g,''); }
+  const { env: vars } = localConfiguration();
   const requests: Array<Record<string,any>>=[];
   const channel=conversationChannel({...resolveModelProfile(vars,test.agent),maxOutputTokens:4096}, async(url,init)=>{
     if(requests.length>=4)throw new Error('Synthetic probe request budget exhausted');
@@ -56,11 +54,7 @@ it.skipIf(!enabled)('acquires a real public page through accounted source readin
   const { contentSourceTool } = await import('./content-editorial');
   const f = await editorialFixture();
   const a = await f.task('source-probe', 'article_production');
-  const vars: Record<string, string> = {};
-  for (const line of readFileSync('.dev.vars', 'utf8').split('\n')) {
-    const match = line.match(/^([A-Z][A-Z0-9_]*)=(.*)$/);
-    if (match) vars[match[1]] = match[2].trim().replace(/^['"]|['"]$/g, '');
-  }
+  const { env: vars } = localConfiguration();
   const tool = contentSourceTool({ ...a.env, FIRECRAWL_API_KEY: vars.FIRECRAWL_API_KEY });
   const result = await tool.execute!(tool.inputSchema.parse({ url: 'https://example.com', purpose: 'Synthetic evidence acquisition smoke' }), a.context) as { source_id: string; excerpt: string; captured_at: string };
   expect(result.excerpt).toContain('Example Domain');

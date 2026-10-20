@@ -18,7 +18,7 @@ describe('task commands', () => {
     const savedTask = await taskForRun(db,child.id);
     const savedRun = await db.prepare('select * from agent_runs where id=?').bind(child.id).first();
     const terminate = vi.fn(async () => {});
-    await executeTaskCommand({DB:db,AGENT_WORKFLOW:{get:async()=>({terminate})}} as unknown as RuntimeAgentEnv,
+    await executeTaskCommand({DB:db,AGENT_WORKFLOW:{get:async()=>({terminate,status:async()=>({status:terminate.mock.calls.length?'terminated':'running'})})}} as unknown as RuntimeAgentEnv,
       {run:parent,command:'cancel',commandId:'cancel-parent-preserve',actorId:'u',reason:'User stopped parent'});
     expect(await taskForRun(db,child.id)).toEqual(savedTask);
     const finalRun = await db.prepare('select * from agent_runs where id=?').bind(child.id).first();
@@ -29,12 +29,15 @@ describe('task commands', () => {
   it('cancels a waiting task even though its last Run succeeded, surviving cleanup failure', async () => {
     const { db, run } = taskTestDb(); const execution = run(); const task = await attachTask(db, execution, definition);
     await stopTask(db, execution.id, 'waiting', 'need input');
-    await db.prepare("update agent_runs set status='succeeded' where id=?").bind(execution.id).run();
-    const env = { DB: db, AGENT_WORKFLOW: { get: async () => { throw new Error('cleanup unavailable'); } } } as unknown as RuntimeAgentEnv;
+    await db.prepare("update agent_runs set status='succeeded',workflow_id='wf' where id=?").bind(execution.id).run();
+    const terminate = vi.fn(async () => {});
+    const get = vi.fn().mockRejectedValueOnce(new Error('cleanup unavailable')).mockResolvedValue({ terminate, status: async () => ({ status: terminate.mock.calls.length ? 'terminated' : 'running' }) });
+    const env = { DB: db, AGENT_WORKFLOW: { get } } as unknown as RuntimeAgentEnv;
     const input = { run: { ...execution, workflow_id: 'wf', status: 'succeeded' as const }, command: 'cancel', commandId: 'cancel-1', actorId: 'u', reason: 'cancel' };
-    await executeTaskCommand(env, input);
+    await expect(executeTaskCommand(env, input)).rejects.toThrow('cleanup remains pending');
     expect((await taskForRun(db, execution.id))?.status).toBe('cancelled');
     expect((await recoverTaskCommand(env, input))?.task?.id).toBe(task.id);
+    expect(terminate).toHaveBeenCalledOnce();
   });
   it('cancels child tasks even if their workflow cleanup is unavailable', async () => {
     const { db, run } = taskTestDb(); const parentRun = run(); await attachTask(db, parentRun, definition);
@@ -42,8 +45,8 @@ describe('task commands', () => {
     await db.prepare('update agent_runs set agent_id=?,parent_run_id=?,workflow_id=? where id=?').bind('deep_research', parentRun.id, 'wf_child', childRun.id).run();
     await attachTask(db, childRun, agentDefinition('deep_research'));
     const cleanup = vi.fn(async () => { throw new Error('network unavailable'); });
-    await executeTaskCommand({ DB: db, AGENT_WORKFLOW: { get: cleanup } } as unknown as RuntimeAgentEnv,
-      { run: parentRun, command: 'cancel', commandId: 'tree-cancel', actorId: 'u', reason: 'stop' });
+    await expect(executeTaskCommand({ DB: db, AGENT_WORKFLOW: { get: cleanup } } as unknown as RuntimeAgentEnv,
+      { run: parentRun, command: 'cancel', commandId: 'tree-cancel', actorId: 'u', reason: 'stop' })).rejects.toThrow('cleanup remains pending');
     expect((await taskForRun(db, childRun.id))?.status).toBe('cancelled');
     expect(cleanup).toHaveBeenCalledWith('wf_child');
   });
