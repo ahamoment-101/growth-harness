@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { mountLibraryTools } from '../keyword-library/agent-tools';
+import { KEYWORD_SEARCH_INSTRUCTIONS, keywordSearchAvailability, registerKeywordSearchTools } from '../keyword-library/search-tools';
 import { listBusinessModules } from '../lib/business';
 import { activeStrategyVersion } from '../lib/research/strategy-store';
 import { businessModuleMarkdown } from '../../shared/business';
@@ -178,6 +179,8 @@ export function keywordResearchTools(input: {
     },
   });
   registerStrategyObservationTools(registry, env, locale, 2);
+  // Keep historical task manifests unchanged, and new manifests stable across key changes.
+  if ((task?.definition_version ?? definition.definitionVersion) >= 8) registerKeywordSearchTools(registry, env, task, locale);
   registry.register({ ...common, name: 'finish_keyword_research', capability: 'read', replaySafety: 'idempotent', retryable: false,
     description: 'Finish this research task with your conclusions for the parent Agent. The host attaches the actual library change receipts. Every outcome, including no_findings and needs_input, returns the result to the parent.',
     inputSchema: finishKeywordResearchSchema, outputSchema: z.unknown(),
@@ -194,10 +197,11 @@ export async function runKeywordResearchConversation(input: AgentModuleExecution
   const { env, definition, run } = input;
   const result = await runConversationTask({ env, step: input.step, runId: run.id, definition, agent: {
     auditCompletionTools: ['finish_keyword_research'],
-    instructions: `${definition.mission}\n${KEYWORD_RESEARCH_SYSTEM}`,
+    instructions: `${definition.mission}\n${KEYWORD_RESEARCH_SYSTEM}${run.definition_version >= 8 ? KEYWORD_SEARCH_INSTRUCTIONS : ''}`,
     context: async task => {
       const brief = briefForTask(task);
       return { brief, locale: brief.locale, system_language: SYSTEM_LANGUAGE,
+        ...(task.definition_version >= 8 ? { optional_search_data: keywordSearchAvailability(env) } : {}),
         base_strategy_version_id: (await activeStrategyVersion(env.DB, task.site_id, brief.locale))?.id || '',
         available_materials: { library: 'open_keyword_library', site_content: 'read_site_content', business: 'read_business_module', strategy: 'read_strategy', research_archive: 'read_evidence' } };
     },

@@ -1,6 +1,6 @@
 // @ts-ignore Test-only Node API.
 import { readFileSync } from 'node:fs';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 vi.mock('agents', () => ({ getAgentByName: vi.fn() }));
 import { taskTestDb } from './task-test-db';
 import { agentDefinition } from './definitions';
@@ -8,6 +8,8 @@ import { attachTask, beginTaskDecision, finishTaskOperation, requireTask, setTas
 import { activateRuntimeExecution, authorityForExecution, createRuntimeExecution } from './runtime-executions';
 import { executionEnvironment } from './execution-context';
 import { startRuntimeRun, type StartRuntimeRunInput } from './run-service';
+import { appendConversationMessage, initializeConversation } from './conversation-store';
+import { conversationToolExecutor } from './conversation-tool-executor';
 import { keywordResearchResult, keywordResearchTools } from './keyword-research';
 import { STRATEGY_DIRECTION_TASK_SYSTEM, STRATEGY_TASK_SYSTEM, strategyTaskTools } from './strategy-task';
 import { strategyInstructions } from './strategy-conversation';
@@ -25,6 +27,7 @@ function database() {
   // @ts-ignore Test-only URL.
   f.sqlite.exec(readFileSync(new URL('../../migrations/0056_keyword_library.sql', import.meta.url), 'utf8'));
   f.sqlite.exec(readFileSync(new URL('../../migrations/0075_language_only_library.sql', import.meta.url).pathname, 'utf8'));
+  f.sqlite.exec(readFileSync(new URL('../../migrations/0073_keyword_search_observations.sql', import.meta.url).pathname, 'utf8'));
   return f;
 }
 
@@ -38,7 +41,7 @@ async function scopedParent(f: ReturnType<typeof database>, agentId: 'strategy_r
   return { parent, env: (host: RuntimeAgentEnv) => executionEnvironment(host, authorityForExecution(execution)) };
 }
 
-async function scopedChild(f: ReturnType<typeof database>, summary: Record<string, unknown>) {
+async function scopedChild(f: ReturnType<typeof database>, summary: Record<string, unknown>, credentials: Partial<RuntimeAgentEnv> = {}) {
   const definition = agentDefinition('keyword_research');
   const run = f.run('child', 'child');
   await f.db.prepare('update agent_runs set agent_id=?,definition_version=?,prompt_version=?,summary_json=? where id=?')
@@ -47,7 +50,7 @@ async function scopedChild(f: ReturnType<typeof database>, summary: Record<strin
   const execution = await createRuntimeExecution(f.db, run.id);
   const authority = authorityForExecution(execution);
   await activateRuntimeExecution(f.db, authority, execution.workflow_id);
-  const env = executionEnvironment({ DB: f.db } as RuntimeAgentEnv, authority);
+  const env = executionEnvironment({ ...credentials, DB: f.db } as RuntimeAgentEnv, authority);
   const call = async (name: string, args: Record<string, unknown>) => {
     const task = await requireTask(env.DB, run.id);
     const operation = await beginTaskDecision(env.DB, task, {});
@@ -64,7 +67,26 @@ async function scopedChild(f: ReturnType<typeof database>, summary: Record<strin
     await finishTaskOperation(env.DB, task, operation, output);
     return { output, completion: tool.completion?.(output) };
   };
-  return { run, env, call };
+  const executeDurable = conversationToolExecutor({ env, step, runId: run.id, definition, scopedTools: (task, operation) => keywordResearchTools({ env, definition, task, operation }) });
+  await initializeConversation(env.DB, await requireTask(env.DB, run.id), 'Keyword research', summary);
+  const savedCalls = new Set<string>();
+  const durableCall = async (name: string, callId: string, args: Record<string, unknown>) => {
+    const task = await requireTask(env.DB, run.id);
+    if (!savedCalls.has(callId)) {
+      await appendConversationMessage(env.DB, task, `assistant:${callId}`, {
+        role: 'assistant', content: [{ type: 'toolCall', id: callId, name, arguments: args }],
+        api: 'openai-completions', provider: 'test', model: 'test', stopReason: 'toolUse', timestamp: 1,
+        usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+      });
+      savedCalls.add(callId);
+    }
+    const output = await executeDurable(name, callId, args);
+    await appendConversationMessage(env.DB, await requireTask(env.DB, run.id), `result:${callId}`, {
+      role: 'toolResult', toolCallId: callId, toolName: name, content: output.content, details: output.details, isError: false, timestamp: 2,
+    });
+    return output;
+  };
+  return { run, env, call, durableCall };
 }
 
 describe('keyword research sub-Agent start authority', () => {
@@ -204,5 +226,111 @@ describe('strategy keyword delegation contract', () => {
     const child = (await taskForRun(f.db, result.task_id))!;
     expect(child).toMatchObject({ agent_id: 'keyword_research', parent_task_id: parent.id });
     expect(create).toHaveBeenCalledOnce();
+  });
+});
+
+const searchCredentials = { DATAFORSEO_LOGIN: 'fixture@example.com', DATAFORSEO_PASSWORD: 'fixture-password' };
+const searchReply = (result: unknown) => new Response(JSON.stringify({ status_code: 20000, tasks: [{ status_code: 20000, cost: 0.01, result: [result] }] }));
+afterEach(() => vi.unstubAllGlobals());
+
+describe('optional keyword Agent search data', () => {
+  it('keeps existing research and completion available without credentials and makes no provider call', async () => {
+    const fetch = vi.fn(); vi.stubGlobal('fetch', fetch);
+    const f = database();
+    const child = await scopedChild(f, { ...brief, locale: 'en' });
+    const status = (await child.call('read_keyword_search_data', {})).output;
+    expect(status).toMatchObject({ configured: false, missing: ['DATAFORSEO_LOGIN', 'DATAFORSEO_PASSWORD'], observations: [] });
+    await expect(child.call('lookup_keyword_metrics', { country: 'US', keywords: ['email'] })).rejects.toMatchObject({ assessment: { kind: 'not_configured', effects: 'none' } });
+    const names = keywordResearchTools({ env: child.env, definition: agentDefinition('keyword_research') }).names();
+    expect(names).toEqual(expect.arrayContaining(['fetch_autocomplete', 'strategy_search_web', 'read_gsc_performance', 'finish_keyword_research']));
+    expect((await child.call('open_keyword_library', { locale: 'en' })).output.library_ref).toBeTruthy();
+    const finished = await child.call('finish_keyword_research', { outcome: 'partial', summary: 'Existing materials reviewed; measured demand remains unknown.', direction_results: [], reason: 'No measured demand available.' });
+    expect(finished.completion).toMatchObject({ status: 'completed', outcome: 'partial' });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('pins new tools by task version, not by whether keys are present', async () => {
+    const f = database();
+    const child = await scopedChild(f, { ...brief, locale: 'en' });
+    const task = (await taskForRun(f.db, child.run.id))!;
+    const definition = agentDefinition('keyword_research');
+    const names = (env: RuntimeAgentEnv, version: number) => keywordResearchTools({ env, definition, task: { ...task, definition_version: version } }).names();
+    expect(names(child.env, 7)).not.toContain('lookup_keyword_metrics');
+    expect(names(child.env, 8)).toContain('lookup_keyword_metrics');
+    expect(names({ ...child.env, ...searchCredentials }, 8)).toEqual(names(child.env, 8));
+    const partial = await scopedChild(database(), { ...brief, locale: 'en' }, { DATAFORSEO_LOGIN: 'fixture@example.com' });
+    expect((await partial.call('read_keyword_search_data', {})).output).toMatchObject({ configured: false, missing: ['DATAFORSEO_PASSWORD'] });
+  });
+
+  it('sends host-bound language, persists both data types and reuses the same operation receipt', async () => {
+    const fetch = vi.fn().mockImplementationOnce(async () => searchReply({ items: [{ keyword: 'email', keyword_info: { search_volume: 120 }, keyword_properties: { keyword_difficulty: 9 } }] }))
+      .mockImplementationOnce(async () => searchReply({ item_types: ['organic', 'people_also_ask'], items: [{ type: 'organic', rank_group: 1, url: 'https://example.com/', title: 'Email', domain: 'example.com' }] }));
+    vi.stubGlobal('fetch', fetch);
+    const f = database();
+    const child = await scopedChild(f, { ...brief, locale: 'pt-BR' }, searchCredentials);
+    const args = { country: 'BR', keywords: ['email', 'unknown'] };
+    const first = await child.durableCall('lookup_keyword_metrics', 'metrics-1', args);
+    const replay = await child.durableCall('lookup_keyword_metrics', 'metrics-1', args);
+    expect(replay).toEqual(first);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/dataforseo_labs/google/keyword_overview/live');
+    expect(JSON.parse(init.body)).toEqual([{ keywords: args.keywords, location_code: 2076, language_code: 'pt' }]);
+    await child.durableCall('lookup_keyword_serp', 'serp-1', { country: 'BR', keyword: 'email' });
+    const saved = (await child.call('read_keyword_search_data', { keywords: args.keywords })).output;
+    expect(saved.observations).toEqual(expect.arrayContaining([
+      expect.objectContaining({ keyword: 'email', metrics: [expect.objectContaining({ search_volume: 120, country: 'BR' })], serp: [expect.objectContaining({ features: ['people_also_ask'] })] }),
+      expect.objectContaining({ keyword: 'unknown', metrics: [expect.objectContaining({ search_volume: null })] }),
+    ]));
+    const rows = await f.db.prepare('select workspace_id,site_id,language,request_id,request_cost_usd from keyword_search_observations').all();
+    expect(rows.results).toHaveLength(3);
+    expect(rows.results).toEqual(expect.arrayContaining([expect.objectContaining({ workspace_id: 'w', site_id: 's', language: 'pt', request_cost_usd: 0.01 })]));
+    await f.db.prepare("update keyword_search_observations set language='ja'").run();
+    expect((await child.call('read_keyword_search_data', { keywords: args.keywords })).output.observations).toEqual([]);
+    await f.db.prepare("update keyword_search_observations set language='pt',site_id='other-site'").run();
+    expect((await child.call('read_keyword_search_data', { keywords: args.keywords })).output.observations).toEqual([]);
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects forged scope and unsupported parameters before dispatch', async () => {
+    const fetch = vi.fn(); vi.stubGlobal('fetch', fetch);
+    const child = await scopedChild(database(), { ...brief, locale: 'en' }, searchCredentials);
+    for (const args of [{ country: 'US', keywords: ['x'], locale: 'ja' }, { country: 'US', keywords: ['x'], site_id: 'other' }, { country: 'IS', keywords: ['x'] }]) {
+      await expect(child.call('lookup_keyword_metrics', args)).rejects.toThrow();
+    }
+    await expect(child.call('lookup_keyword_serp', { country: 'US', keyword: 'x', depth: 23 })).rejects.toThrow();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('returns safe typed account failures and preserves earlier observations', async () => {
+    const fetch = vi.fn().mockImplementationOnce(async () => searchReply({ items: [] }))
+      .mockImplementationOnce(async () => new Response(JSON.stringify({ status_code: 40104, status_message: searchCredentials.DATAFORSEO_PASSWORD }), { status: 403 }));
+    vi.stubGlobal('fetch', fetch);
+    const child = await scopedChild(database(), { ...brief, locale: 'en' }, searchCredentials);
+    await child.call('lookup_keyword_metrics', { country: 'US', keywords: ['email'] });
+    const error = await child.call('lookup_keyword_metrics', { country: 'US', keywords: ['new'] }).catch(error => error);
+    expect(error).toMatchObject({ assessment: { kind: 'not_authorized', retryable: false, effects: 'none' } });
+    expect(error.message).toContain('40104');
+    expect(error.message).not.toContain(searchCredentials.DATAFORSEO_PASSWORD);
+    expect((await child.call('read_keyword_search_data', { keywords: ['email'] })).output.observations).toHaveLength(1);
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not dispatch after task cancellation', async () => {
+    const fetch = vi.fn(); vi.stubGlobal('fetch', fetch);
+    const f = database();
+    const child = await scopedChild(f, { ...brief, locale: 'en' }, searchCredentials);
+    await stopTask(f.db, child.run.id, 'cancelled', 'Owner cancelled');
+    await expect(child.durableCall('lookup_keyword_metrics', 'cancelled-1', { country: 'US', keywords: ['email'] })).rejects.toThrow();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('does not repeat a paid request with an unknown transport outcome', async () => {
+    const fetch = vi.fn(async () => { throw new Error('Connection lost after dispatch'); }); vi.stubGlobal('fetch', fetch);
+    const child = await scopedChild(database(), { ...brief, locale: 'en' }, searchCredentials);
+    const args = { country: 'US', keywords: ['email'] };
+    await expect(child.durableCall('lookup_keyword_metrics', 'unknown-1', args)).rejects.toThrow('unknown');
+    await expect(child.durableCall('lookup_keyword_metrics', 'unknown-1', args)).rejects.toThrow('reconciliation');
+    expect(fetch).toHaveBeenCalledOnce();
   });
 });

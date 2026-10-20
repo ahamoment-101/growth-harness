@@ -24,6 +24,8 @@ export interface RuntimeAgentEnv {
   OPENAI_API_KEY?: string;
   ANTHROPIC_API_KEY?: string;
   FIRECRAWL_API_KEY?: string;
+  DATAFORSEO_LOGIN?: string;
+  DATAFORSEO_PASSWORD?: string;
   FIRECRAWL_RESEARCH_MODEL?: string;
   FIRECRAWL_RESEARCH_MAX_CREDITS?: string;
   RESEARCH_BUCKET?: R2Bucket;

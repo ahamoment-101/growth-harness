@@ -39,6 +39,16 @@ Keep the development server running while Agents execute. Stopping it stops loca
 
 Cloudflare hosting uses separate resources and Secrets, configured through [self-hosting](docs/self-hosting.md#cloudflare). Local databases and stored articles are not automatically copied to production when you deploy. Verify the deployed installation separately; a local test does not establish production readiness.
 
+## Optional DataForSEO keyword data
+
+[DataForSEO](https://dataforseo.com/) is a paid API service that supplies SEO data. The Keyword Research Agent can use it to look up country-specific search volume, keyword difficulty, search intent, CPC and monthly search trends, or retrieve organic Google results and results-page features (SERP). These observations help the Agent compare demand and inspect competing pages; they do not guarantee rankings or traffic.
+
+To enable these queries, set both `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` using the API credentials from your [DataForSEO dashboard](https://app.dataforseo.com/). Put them in `.dev.vars` locally or Cloudflare Secrets in production, then restart or redeploy. Do not commit credentials. No separate feature flag is required. The Agent decides whether a query is useful; configuring credentials does not force a paid lookup on every task.
+
+**Without DataForSEO**, keyword research retains its existing methods: autocomplete suggestions, existing library and business/research materials, web search through Firecrawl when configured, and Search Console data when connected. There is no automatic replacement service for measured search volume or difficulty. Unavailable metrics remain unknown, not zero, and missing DataForSEO credentials do not prevent the Agent from maintaining the library or returning its research outcome. Firecrawl, GSC and model services keep their own setup requirements.
+
+Successful queries are saved by site, language and country with source, observation time and request cost. The Agent can read saved observations before deciding whether fresh data is needed. DataForSEO bills queries separately, including some failures and queries with no data. Interrupted requests with an unknown outcome are not automatically repeated. Existing running tasks keep their pinned tool contract; start a new keyword research task to use the newly added tools after upgrading.
+
 ## Configuration and Deployment
 
 - [Configuration Guide](docs/configuration.md): Purpose, service portal, required conditions, costs, and impact of absence for each configuration item.

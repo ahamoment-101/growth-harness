@@ -22,7 +22,8 @@ FIRECRAWL_API_KEY=
 FIRECRAWL_RESEARCH_MODEL=spark-2
 FIRECRAWL_RESEARCH_MAX_CREDITS=100
 
-# Optional keyword metrics / SERP. Both are needed for DataForSEO operations.
+# Optional paid Keyword Research Agent metrics / SERP. Both API credentials are needed.
+# Leave empty to keep existing research methods without measured DataForSEO metrics.
 DATAFORSEO_LOGIN=
 DATAFORSEO_PASSWORD=
 

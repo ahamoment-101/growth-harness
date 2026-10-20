@@ -49,7 +49,7 @@ For a local-only model selection, an optional `MODEL_REGISTRY` in `.dev.vars` mu
 | `FIRECRAWL_API_KEY` | [Firecrawl](https://www.firecrawl.dev/): scraping, search, and external research | Required when using related tools; when missing, corresponding operations return missing configuration while other features remain available, billed by provider |
 | `FIRECRAWL_RESEARCH_MODEL` | Firecrawl research model, sample `spark-2` | Used by managed research, must be a vendor-supported model |
 | `FIRECRAWL_RESEARCH_MAX_CREDITS` | Vendor credit limit for a single research job, sample 100 | Not cumulative Agent round limit; cumulative consumption is tracked separately |
-| `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD` | API login and API password for [DataForSEO](https://app.dataforseo.com/) | Both required for keyword metrics and SERP queries; when missing, real-time data cannot be retrieved, billed by provider |
+| `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD` | API login and API password for [DataForSEO](https://app.dataforseo.com/) | Both enable optional paid Keyword Research Agent queries; without them, existing research methods remain available and unavailable metrics stay unknown |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Search Console OAuth app in Google Cloud | Required when using GSC, callback `<origin>/api/gsc/oauth/callback`. Independent of backend Google login; when using the same app, two callbacks must be registered |
 | `GSC_TOKEN_CIPHER_KEY` | Self-generated 32 random bytes, formatted as 64-character hex | Required for GSC refresh token encryption; direct rotation renders existing tokens indecipherable and requires migration first |
 | `AUTH_SESSION_SECRET` | Signing secret mentioned above | Also required by GSC, regardless of whether Google login is enabled |
@@ -63,3 +63,13 @@ Webhook URLs, headers, and secrets are configured on each site configuration pag
 Startup checks report missing fields and remediation steps to developers. The Worker also validates login configuration to prevent accidentally exposing endpoints by bypassing the CLI. Standard users see incomplete configuration notices; permission denials, insufficient quota, and unsupported protocols are handled via original tool and Runtime mechanisms without the configuration module deciding strategy for Agents or faking success.
 
 Legacy `AI_GATEWAY_ACCOUNT_ID` and `AI_GATEWAY_NAME` are currently not read by model direct connection paths and do not need to be populated for open-source installations.
+
+## DataForSEO in the Keyword Research Agent
+
+[DataForSEO](https://dataforseo.com/) is a paid API service that supplies SEO data. The Keyword Research Agent can use it to look up country-specific search volume, keyword difficulty, search intent, CPC and monthly search trends, or retrieve organic Google results and results-page features (SERP). These observations help the Agent compare demand and inspect competing pages; they do not guarantee rankings or traffic.
+
+To enable these queries, set both `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` using the API credentials from your [DataForSEO dashboard](https://app.dataforseo.com/). Put them in `.dev.vars` locally or Cloudflare Secrets in production, then restart or redeploy. Do not commit credentials. No separate feature flag is required. The Agent decides whether a query is useful; configuring credentials does not force a paid lookup on every task.
+
+**Without DataForSEO**, keyword research retains its existing methods: autocomplete suggestions, existing library and business/research materials, web search through Firecrawl when configured, and Search Console data when connected. There is no automatic replacement service for measured search volume or difficulty. Unavailable metrics remain unknown, not zero, and missing DataForSEO credentials do not prevent the Agent from maintaining the library or returning its research outcome. Firecrawl, GSC and model services keep their own setup requirements.
+
+Successful queries are saved by site, language and country with source, observation time and request cost. The Agent can read saved observations before deciding whether fresh data is needed. DataForSEO bills queries separately, including some failures and queries with no data. Interrupted requests with an unknown outcome are not automatically repeated. Existing running tasks keep their pinned tool contract; start a new keyword research task to use the newly added tools after upgrading.
