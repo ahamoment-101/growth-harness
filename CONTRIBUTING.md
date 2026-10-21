@@ -23,3 +23,5 @@ Include screenshots for UI changes. Do not include keys, cookies or customer log
 Contributions are provided under the repository MIT license. Retain third-party
 notices and identify copied code and its source. Report security issues privately
 using [SECURITY.md](SECURITY.md), not a public issue.
+
+Participation in this project is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).

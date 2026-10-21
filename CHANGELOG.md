@@ -9,6 +9,19 @@ Every release lists, under **Upgrade notes**, each new migration by file name, a
 
 ## [Unreleased]
 
+### Added
+
+- Code of Conduct (Contributor Covenant 2.0) and a pull request template.
+
+### Changed
+
+- CI uses `actions/checkout` 7.0.1 and `actions/setup-node` 7.1.0.
+- `@cloudflare/workers-types` is pinned to an exact version instead of `latest`.
+
+### Upgrade notes
+
+- None. No migration, configuration or deployment change.
+
 ## [0.1.0] - 2026-10-21
 
 First public release.
