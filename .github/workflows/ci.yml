@@ -21,7 +21,8 @@ jobs:
       - run: npm ci --registry=https://registry.npmjs.org
       - run: npm test
       - run: npm run test:sync
-      - run: node --test scripts/d1-target.test.mjs scripts/sanitize-build.test.mjs scripts/check-public-boundary.test.mjs
+      - run: node --test scripts/d1-target.test.mjs scripts/sanitize-build.test.mjs scripts/check-public-boundary.test.mjs scripts/check-changelog.test.mjs
+      - run: npm run changelog:check
       - run: node scripts/check-public-boundary.mjs
       - run: npm run build
       - run: node scripts/check-public-boundary.mjs --artifacts dist

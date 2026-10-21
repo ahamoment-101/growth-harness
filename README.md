@@ -66,6 +66,7 @@ Successful queries are saved by site, language and country with source, observat
 - [First-Run Verification](docs/launch-readiness.md): Missing-key recovery, presentation checks, and verification limits.
 - [Configuration Guide](docs/configuration.md): Purpose, service portal, required conditions, costs, and impact of absence for each configuration item.
 - [Self-Hosting and Upgrades](docs/self-hosting.md): Your own Cloudflare resources, Secrets, deployment, migration of existing Google users, and password resets.
+- [Changelog](CHANGELOG.md): Released versions and the upgrade notes to read before each upgrade.
 - [Verification Guide](docs/verification.md): Local checks and opt-in model/publication acceptance.
 - [Documentation Index](docs/README.md): Shared architecture and feature contracts.
 

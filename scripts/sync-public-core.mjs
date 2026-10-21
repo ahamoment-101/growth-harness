@@ -72,7 +72,8 @@ for (const [name, command] of Object.entries(retiredScripts)) {
   if (targetPackage.scripts[name] === command) delete targetPackage.scripts[name];
 }
 for (const [name, command] of Object.entries(sourcePackage.scripts)) {
-  if (name === 'release:check' || name in retiredScripts) continue;
+  // Release and changelog checks belong to the public repository only.
+  if (name === 'release:check' || name === 'changelog:check' || name in retiredScripts) continue;
   if (name === 'build' || name === 'test' || name.startsWith('db:migrate:') || !targetPackage.scripts[name]) targetPackage.scripts[name] = command;
 }
 const packageChanged = JSON.stringify(targetPackage, null, 2) + '\n' !== readFileSync(resolve(target, 'package.json'), 'utf8');

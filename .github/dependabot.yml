@@ -1,0 +1,8 @@
+# npm security fixes come from Dependabot security updates (repository setting).
+# Version updates are limited to the pinned GitHub Actions used by CI.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

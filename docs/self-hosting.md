@@ -25,6 +25,16 @@ The system still depends on Workers, D1, R2, Durable Objects, and Workflows. The
 7. `npm run deploy`, open your own public URL, create the admin, and log in. When using Google, register the corresponding authorization callback first.
 8. Run a minimal real business chain, read back articles, review records, and Task results, and verify billing, cancellation, and recovery. A successful installation is not the same as model research being accepted.
 
+## Upgrading a Release
+
+Releases are tagged `vX.Y.Z` and described in [CHANGELOG](../CHANGELOG.md). To stay on a known version, check out its tag (for example `git checkout v0.1.0`) instead of tracking `main`.
+
+1. Read the **Upgrade notes** of every release between your version and the target. Patch releases need no manual step; minor releases may add migrations or configuration.
+2. Back up the deployed database: `npx wrangler d1 export <database-name> --remote --output backup.sql`. Keep the file private.
+3. Complete any maintenance step the notes require, such as a precheck before a migration that drops columns.
+4. Check out the target tag, run `npm ci`, apply migrations with `npm run db:migrate:remote`, then `npm run deploy`.
+5. Open the console, confirm login and the classroom load, and read back a recent task.
+
 ## Existing Instances
 
 Migrations 0073–0080 include schema and protocol changes. 0075/0076 drop the old market-partition fields and must be handled per [Language migration precheck and maintenance steps](language-only-domain.md); you must not hot-switch old-protocol Tasks that are executing. Back up first and complete the maintenance steps, migrate in order, and then deploy the corresponding Worker and pages.
