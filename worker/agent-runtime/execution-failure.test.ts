@@ -13,6 +13,7 @@ describe('execution failure boundary', () => {
     expect(result.failure.message).toContain('SELECTED_MODEL_KEY is not set');
     expect(result.failure.message).toContain('.dev.vars');
     expect(result.failure.message).toContain('Cloudflare Secrets');
+    expect(result.failure.message).toContain('This task is paused and can resume after configuration is restored.');
     expect(() => decodeExecution(result)).toThrow(ExecutionFailureError);
     expect(executionFailure(new Error(result.failure.message))).toBeNull();
   });

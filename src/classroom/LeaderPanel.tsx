@@ -149,7 +149,7 @@ function LeaderChat({ siteId, id, view, crowd, ready, conversation, detail, onCl
   const [hasNew, setHasNew] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false);
   const pending = useRef<{ id: string; text: string } | null>(null);
-  const creation = useRef<{ id: string; title: string; created: boolean } | null>(null);
+  const creation = useRef<{ id: string; title: string } | null>(null);
   const command = useRef<{ key: string; id: string } | null>(null);
   const setDraft = (value: string) => { setDraftState(value); saved.draft = value; };
   const [history, setHistory] = useState<LeaderMessage[] | null>(null);
@@ -201,13 +201,14 @@ function LeaderChat({ siteId, id, view, crowd, ready, conversation, detail, onCl
     setBusy(true); setError('');
     try {
       let target = id;
-      if (!target) {
-        creation.current ||= { id: crypto.randomUUID(), title: titleFromMessage(text), created: false };
-        if (!creation.current.created) { await api.createLeaderConversation(siteId, creation.current); creation.current.created = true; }
-        target = creation.current.id;
-      }
       if (!pending.current || pending.current.text !== text) pending.current = { id: crypto.randomUUID(), text };
-      await api.sendLeaderMessage(siteId, target, pending.current);
+      if (!target) {
+        creation.current ||= { id: crypto.randomUUID(), title: titleFromMessage(text) };
+        await api.startLeaderConversation(siteId, { ...creation.current, message: pending.current });
+        target = creation.current.id;
+      } else {
+        await api.sendLeaderMessage(siteId, target, pending.current);
+      }
       pending.current = null; setDraft(''); follow.current = true; saved.follow = true;
       if (!id) { view.delete(NEW); creation.current = null; onCreated(target); return; }
     } catch (e) { setError(friendlyError(e, 'The message wasn\'t sent successfully, but the content has been preserved; you can try again.')); }

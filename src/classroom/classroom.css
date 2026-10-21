@@ -201,3 +201,6 @@ html:has(.classroom), body:has(.classroom) { overscroll-behavior: none; overflow
 .classroom .log-entry-heading .log-when { flex-shrink: 0; font-size: 9px; font-weight: 400; }
 .classroom .ledger-freshness { color: var(--text-3); font-size: 9px; line-height: 1.3; margin-top: 2px; }
 .classroom .ledger-sitemap b { font-size: 13px; }
+
+.classroom .room-configuration { margin: 0 auto 12px; max-width: 1000px; padding: 12px 16px; border: 1px solid #dcc898; border-radius: 12px; background: #fff9ea; color: #604b21; }
+.classroom .room-configuration p { margin: 4px 0 10px; overflow-wrap: anywhere; }

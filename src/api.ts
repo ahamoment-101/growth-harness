@@ -1,4 +1,4 @@
-import type { LeaderConversation, LeaderDetail } from '../shared/growth-leader';
+import type { LeaderConversation, LeaderDetail, LeaderConfiguration } from '../shared/growth-leader';
 import type { SiteLedgerResponse } from '../shared/site-ledger';
 import type { AgentActivityPage } from '../shared/agent-activity';
 import type { WorkResponse, WorkResponseReceipt } from '../shared/agent-work';
@@ -471,6 +471,8 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  leaderConfiguration: (siteId: string) => req<LeaderConfiguration>(`/api/sites/${siteId}/leader/configuration`),
+  startLeaderConversation: (siteId: string, input: { id: string; title: string; message: { id: string; text: string } }) => req<{ accepted: boolean; id: string }>(`/api/sites/${siteId}/leader/start`, { method: 'POST', body: JSON.stringify(input) }),
   createLeaderConversation: (siteId: string, input: { id: string; title: string }) => req<LeaderConversation>(`/api/sites/${siteId}/leader/conversations`, { method: 'POST', body: JSON.stringify(input) }),
   leaderConversation: (siteId: string, id: string) => req<LeaderDetail>(`/api/sites/${siteId}/leader/conversations/${encodeURIComponent(id)}`),
   sendLeaderMessage: (siteId: string, id: string, input: { id: string; text: string }) => req<{ accepted: boolean }>(`/api/sites/${siteId}/leader/conversations/${encodeURIComponent(id)}/messages`, { method: 'POST', body: JSON.stringify(input) }),

@@ -13,7 +13,7 @@ const bundled = await build({ stdin: { resolveDir: process.cwd(), sourcefile: 'm
   export { SiteRoom } from './worker/site-room/room';
   import worker from './worker/index';
   import { createSession, sessionCookie } from './worker/lib/auth/session';
-  import { wakeConversation } from './worker/growth-leader/service';
+  import { startConversation, wakeConversation } from './worker/growth-leader/service';
   import { reconcileTaskExecutions } from './worker/agent-runtime/task-recovery';
   export default { async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -22,6 +22,11 @@ const bundled = await build({ stdin: { resolveDir: process.cwd(), sourcefile: 'm
       const workspace = await env.DB.prepare("select * from workspaces where id='primary-workspace'").first();
       const token = await createSession(env.DB, { user, workspace });
       return new Response(null, { status: 302, headers: { Location: '/website/s', 'Set-Cookie': sessionCookie(url, token) } });
+    }
+    if (url.pathname === '/__fixture/start') {
+      try { await startConversation(env, { workspaceId: 'primary-workspace', siteId: 's' }, await request.json(), 'fixture-user');
+        return Response.json({ accepted: true }); }
+      catch { return Response.json({ accepted: false }, { status: 409 }); }
     }
     if (url.pathname === '/__fixture/wake') {
       await wakeConversation(env, { workspaceId: 'primary-workspace', siteId: 's' }, url.searchParams.get('id'));
@@ -75,13 +80,31 @@ try {
     method: body ? 'POST' : 'GET', headers: { Cookie: cookie, Origin: base, 'Content-Type': 'application/json' },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
+  const configuration = await call('configuration');
+  assert.equal(configuration.status, 200);
+  const setup = await configuration.json();
+  assert.equal(setup.key, 'OPENROUTER_API_KEY');
+  assert.doesNotMatch(setup.message, /resume|existing task/i);
   const id = crypto.randomUUID();
-  assert.equal((await call('conversations', { id, title: 'Model setup required' })).status, 201);
-  const rejected = await call(`conversations/${id}/messages`, { id: crypto.randomUUID(), text: 'Research my next article' });
+  const first = { id, title: 'Model setup required', message: { id: crypto.randomUUID(), text: 'Research my next article' } };
+  const rejected = await call('start', first);
   assert.equal(rejected.status, 503);
   assert.equal((await rejected.json()).code, 'model_configuration_required');
+  assert.equal(await db.prepare('select count(*) n from leader_conversations').first('n'), 0);
   assert.equal(await db.prepare('select count(*) n from leader_inputs').first('n'), 0);
   assert.equal(await db.prepare('select count(*) n from agent_runs').first('n'), 0);
+
+  // Exercise actual D1 transaction/replay behavior without dispatch or provider calls.
+  const accept = body => runtime.dispatchFetch(base + '/__fixture/start', { method: 'POST', body: JSON.stringify(body) });
+  const transaction = { ...first, id: crypto.randomUUID() };
+  assert.equal((await accept(transaction)).status, 200);
+  assert.equal((await accept(transaction)).status, 200);
+  assert.equal((await accept({ ...transaction, id: crypto.randomUUID() })).status, 409);
+  assert.equal(await db.prepare('select count(*) n from leader_conversations').first('n'), 1);
+  assert.equal(await db.prepare('select count(*) n from leader_inputs').first('n'), 1);
+  await db.prepare('delete from leader_inputs where conversation_id=?').bind(transaction.id).run();
+  await db.prepare('delete from leader_conversations where id=?').bind(transaction.id).run();
+  assert.equal((await call('conversations', { id, title: 'Model setup required' })).status, 201);
 
   // Reproduce a task durably accepted by an earlier version, before preflight existed.
   await db.prepare("insert into leader_inputs(id,conversation_id,kind,actor_id,content,created_at) values(?,?,'user','fixture-user','Research my next article',?)")
@@ -97,6 +120,7 @@ try {
   } while (Date.now() < deadline);
   assert.equal(detail.conversation.status, 'paused');
   assert.match(detail.conversation.reason, /OPENROUTER_API_KEY is not set/);
+  assert.match(detail.conversation.reason, /This task is paused and can resume after configuration is restored\./);
   const executions = await db.prepare('select count(*) n from agent_runtime_executions').first('n');
   for (const day of [1, 30]) {
     const checked = await runtime.dispatchFetch(base + '/__fixture/reconcile?at=' + encodeURIComponent(new Date(Date.now() + day * 86400000).toISOString()));
@@ -105,6 +129,6 @@ try {
   assert.equal(await db.prepare('select count(*) n from agent_runtime_executions').first('n'), executions);
   assert.equal(await db.prepare('select count(*) n from agent_model_attempts').first('n'), 0);
   assert.equal(outboundCalls, 0);
-  console.log(JSON.stringify({ verified: 'missing-key preflight, real Workflow pause, original task retained, no retries after reconciliation', executions, modelAttempts: 0, outboundCalls, login: base + '/__fixture/login', conversation: id }));
+  console.log(JSON.stringify({ verified: 'home configuration, atomic first-message acceptance and replay, no empty conversation on missing key, real Workflow pause, original task retained, no retries after reconciliation', executions, modelAttempts: 0, outboundCalls, login: base + '/__fixture/login', conversation: id }));
   if (process.env.LEADER_UI === '1') await new Promise(resolve => { process.once('SIGINT', resolve); process.once('SIGTERM', resolve); });
 } finally { await runtime.dispose(); }

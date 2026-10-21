@@ -1,3 +1,4 @@
+import type { ConfigurationView } from './useLeaderConfiguration';
 import { LedgerScreen } from './LedgerScreen';
 import type { Site } from '../api';
 import type { LeaderList } from '../../shared/growth-leader';
@@ -12,10 +13,12 @@ import { FilingCabinet } from './FilingCabinet';
 // the team right now, the centre screen what it has produced so far, the right screen goals
 // followed by the Leader. Both side screens open recorded team progress.
 
-export function ScreenWall({ site, headcount, working, pending }: { site: Site; headcount: number; working: number; pending: number }) {
+type TeamScreenProps = { site: Site; headcount: number; working: number; pending: number; configuration: ConfigurationView; statusReady: boolean };
+
+export function ScreenWall({ site, headcount, working, pending, configuration, statusReady }: TeamScreenProps) {
   return (
     <div className="room-front">
-      <TeamScreen site={site} headcount={headcount} working={working} pending={pending} />
+      <TeamScreen site={site} headcount={headcount} working={working} pending={pending} configuration={configuration} statusReady={statusReady} />
       <LedgerScreen site={site} />
       <GoalScreen site={site} />
       <div className="room-furnishings"><FilingCabinet site={site} /></div>
@@ -24,16 +27,16 @@ export function ScreenWall({ site, headcount, working, pending }: { site: Site; 
 }
 
 /** Left: the team right now. */
-function TeamScreen({ site, headcount, working, pending }: { site: Site; headcount: number; working: number; pending: number }) {
+export function TeamScreen({ site, headcount, working, pending, configuration, statusReady }: TeamScreenProps) {
   return (
     <button type="button" className="big-screen side left" onClick={() => go(sitePage(site.id, 'room-activity'))} aria-label="Open team progress">
       <span className="screen-glass team-screen">
-        <span className="side-title">The team is working</span>
-        <span className="screen-sub">{pending} things awaiting your decision</span>
+        <span className="side-title">{configuration.state === 'checking' ? 'Checking model setup…' : configuration.state === 'unavailable' ? 'Model setup unknown' : configuration.state !== 'configured' ? 'Model setup required' : !statusReady ? 'Team status unavailable' : working > 0 ? 'The team is working' : pending > 0 ? 'Your input is needed' : 'The team is idle'}</span>
+        <span className="screen-sub">{statusReady ? `${pending} things awaiting your decision` : 'Waiting for team status…'}</span>
         <span className="team-rows">
           <span className="team-row"><span className="chip-icon">{Icon.social}</span>employees<b>{headcount}</b></span>
-          <span className="team-row"><i className="dot ok" />Working<b>{working}</b></span>
-          <span className="team-row"><i className="dot bad" />awaiting your action<b>{pending}</b></span>
+          <span className="team-row"><i className="dot ok" />Working<b>{statusReady ? working : '—'}</b></span>
+          <span className="team-row"><i className="dot bad" />awaiting your action<b>{statusReady ? pending : '—'}</b></span>
         </span>
       </span>
     </button>

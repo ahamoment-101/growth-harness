@@ -3,11 +3,12 @@ import type { AgentId } from '../../shared/agent-ids';
 import { REASONING_EFFORTS, type ReasoningEffort, type ModelRegistryEnv, type ResolvedModelProfile, type ModelProfile } from '../../shared/config/models';
 export * from '../../shared/config/models';
 
-/** A local configuration defect cannot be repaired by replacing an execution host. */
+/** A local configuration defect cannot be repaired by replacing an execution host.
+ * The message is setup guidance only; a paused task adds its own resume note. */
 export class ModelConfigurationError extends Error {
   readonly code = 'model_configuration_required';
   constructor(readonly keyName: string) {
-    super(`${keyName} is not set. Add it to .dev.vars for local development or Cloudflare Secrets for deployment, then restart or redeploy. Your existing task can resume after configuration is restored.`);
+    super(`${keyName} is not set. Add it to .dev.vars for local development or Cloudflare Secrets for deployment, then restart or redeploy.`);
     this.name = 'ModelConfigurationError';
   }
 }

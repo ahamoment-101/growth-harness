@@ -22,3 +22,34 @@ describe('Leader message configuration preflight', () => {
     expect(ctx.waitUntil).not.toHaveBeenCalled();
   });
 });
+
+  it('rejects a first message before creating an empty conversation', async () => {
+    const prepare = vi.fn(() => { throw new Error('No writes expected'); });
+    const env = { DB: { prepare } } as unknown as RuntimeAgentEnv;
+    const ctx = { waitUntil: vi.fn() };
+    const response = await handleLeaderRequest(new Request('https://example.invalid/start', { method: 'POST',
+      body: JSON.stringify({ id: crypto.randomUUID(), title: 'First task', message: { id: crypto.randomUUID(), text: 'Research' } }),
+    }), env, { workspaceId: 'w', siteId: 's' }, 'owner', 'start', ctx);
+    expect(response.status).toBe(503);
+    expect(prepare).not.toHaveBeenCalled();
+    expect(ctx.waitUntil).not.toHaveBeenCalled();
+  });
+
+  it('reports the selected key without exposing credentials or invoking a model', async () => {
+    const env = { MODEL_REGISTRY: testModelRegistry({ selected: testModelProfile({ keyName: 'SELECTED_MODEL_KEY' }) }, 'selected'),
+      OPENROUTER_API_KEY: 'unrelated-secret' } as unknown as RuntimeAgentEnv;
+    const read = () => handleLeaderRequest(new Request('https://example.invalid/configuration'), env,
+      { workspaceId: 'w', siteId: 's' }, 'owner', 'configuration', { waitUntil: vi.fn() });
+    const response = await read();
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+    const missing = await response.json() as { message: string };
+    expect(missing).toMatchObject({ state: 'missing', key: 'SELECTED_MODEL_KEY' });
+    // Before any task exists, setup guidance must not promise to resume one.
+    expect(missing.message).not.toMatch(/resume|existing task/i);
+    Object.assign(env, { SELECTED_MODEL_KEY: 'configured-secret' });
+    expect(await (await read()).json()).toEqual({ state: 'configured' });
+    env.MODEL_REGISTRY = '{invalid-secret';
+    const invalid = await (await read()).json();
+    expect(invalid).toEqual({ state: 'invalid', message: expect.stringContaining('MODEL_REGISTRY') });
+    expect(JSON.stringify(invalid)).not.toContain('invalid-secret');
+  });

@@ -14,7 +14,7 @@ export function useTeamStatus(siteId: string) {
   const byAgent = useMemo(() => new Map(bubbles.map((b) => [b.agent_id, b])), [bubbles]);
   // Only a connection that has already delivered state and then dropped is worth mentioning.
   const error = failure ? 'Status temporarily unreadable, retrying automatically' : data && !connected ? 'Status updates interrupted, reconnecting' : '';
-  return { bubbles, byAgent, markSeen, figures: data?.figures, error };
+  return { ready: !!data && connected && !failure, bubbles, byAgent, markSeen, figures: data?.figures, error };
 }
 
 /** Counts visible signals; this is not the total task backlog. */

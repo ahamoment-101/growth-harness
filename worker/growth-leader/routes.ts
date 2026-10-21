@@ -1,12 +1,36 @@
+import type { LeaderConfiguration } from '../../shared/growth-leader';
 import { z } from 'zod';
 import type { RuntimeAgentEnv } from '../agent-runtime/env';
-import { createConversation, enqueueInput, listConversations, readLeaderDetail, wakeConversation, type LeaderScope } from './service';
+import { createConversation, startConversation, enqueueInput, listConversations, readLeaderDetail, wakeConversation, type LeaderScope } from './service';
 import { dispatchPendingAgentEvents } from '../agent-events/pool';
 import { ModelConfigurationError, resolveModelProfile } from '../agent-runtime/model-registry';
 const create = z.object({ id: z.string().uuid(), title: z.string().trim().min(1).max(200), context: z.string().max(20000).optional() });
 const message = z.object({ id: z.string().uuid(), text: z.string().trim().min(1).max(20000) });
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { 'Cache-Control': 'private, no-store' } });
 export async function handleLeaderRequest(request: Request, env: RuntimeAgentEnv, scope: LeaderScope, actorId: string, path: string, ctx: {waitUntil(promise:Promise<unknown>):void}) {
+  if (path === 'configuration' && request.method === 'GET') {
+    let configuration: LeaderConfiguration;
+    try { resolveModelProfile(env, 'growth_leader'); configuration = { state: 'configured' }; }
+    catch (error) {
+      configuration = error instanceof ModelConfigurationError
+        ? { state: 'missing', key: error.keyName, message: error.message }
+        : { state: 'invalid', message: 'The model configuration is invalid. Check MODEL_REGISTRY and restart or redeploy.' };
+    }
+    return json(configuration);
+  }
+  if (path === 'start' && request.method === 'POST') {
+    try {
+      const input = create.extend({ message }).parse(await request.json());
+      resolveModelProfile(env, 'growth_leader');
+      await startConversation(env, scope, input, actorId);
+      ctx.waitUntil(wakeConversation(env, scope, input.id).then(() => dispatchPendingAgentEvents(env))
+        .catch(error => console.error('Leader dispatch pending', String(error))));
+      return json({ accepted: true, id: input.id }, 202);
+    } catch (error) {
+      if (error instanceof ModelConfigurationError) return json({ error: error.message, code: error.code }, 503);
+      return json({ error: error instanceof z.ZodError ? 'Invalid conversation or message.' : 'The conversation could not be accepted. Retry the original request.' }, error instanceof z.ZodError ? 400 : 409);
+    }
+  }
   const match = path.match(/^conversations(?:\/([^/]+)(\/messages)?)?$/);
   if (!match) return json({error:'not found'},404);
   try {

@@ -1,3 +1,4 @@
+import { useLeaderConfiguration } from './useLeaderConfiguration';
 import { LeaderPanel } from './LeaderPanel';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { RosterMember } from '../../shared/agent-roster';
@@ -31,6 +32,7 @@ export default function Classroom({ site, sites, active, openAgentId, openReview
   const crowd = useMemo(() => [GROWTH_LEADER, ...team].map((a) => a.id), [team]);
   const selected = [GROWTH_LEADER, ...team].find((a) => a.id === selectedId) ?? null;
   const status = useTeamStatus(site.id);
+  const { configuration, recheck } = useLeaderConfiguration(site.id);
   const figures = status.figures ?? screenFigures(status.bubbles);
   const viewport = useRef<HTMLDivElement>(null);
   const stage = useRef<HTMLDivElement>(null);
@@ -55,7 +57,13 @@ export default function Classroom({ site, sites, active, openAgentId, openReview
       <div className="room-fit" style={{ height: fit.height * fit.scale }}>
         <div ref={stage} className="room-stage" style={{ width: STAGE_W, left: `calc(50% - ${(STAGE_W * fit.scale) / 2}px)`, transform: `scale(${fit.scale})` }}>
           <Brand site={site} sites={sites} />
-          <ScreenWall site={site} headcount={crowd.length} {...figures} />
+          {configuration.state !== 'configured' && <aside className="room-configuration" role="status">
+            <strong>{configuration.state === 'checking' ? 'Checking model setup…' : configuration.state === 'unavailable' ? 'Model setup could not be checked' : 'Model setup required'}</strong>
+            {(configuration.state === 'missing' || configuration.state === 'invalid') && <p>{configuration.message}</p>}
+            {configuration.state === 'unavailable' && <p>Try again to check the Leader model configuration.</p>}
+            {configuration.state !== 'checking' && <button className="btn" onClick={recheck}>Check again</button>}
+          </aside>}
+          <ScreenWall site={site} headcount={crowd.length} configuration={configuration} statusReady={status.ready} {...figures} />
           <Seating team={team} crowd={crowd} bubbles={status.byAgent} selectedId={selectedId} onSelect={select} />
         </div>
       </div>

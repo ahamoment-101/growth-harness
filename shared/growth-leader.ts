@@ -11,3 +11,6 @@ export type LeaderTask = { id: string; agent_id: string; agent_name: string; sta
 export type LeaderDetail = { conversation: LeaderConversation; messages: LeaderMessage[]; tasks: LeaderTask[];
   hitl_requests: import('./agent-work').WorkNode[]; has_earlier?: boolean };
 export type LeaderList = { conversations: LeaderConversation[] };
+
+/** Local configuration only; a present key does not prove provider connectivity or credit. */
+export type LeaderConfiguration = { state: 'configured' } | { state: 'missing'; key: string; message: string } | { state: 'invalid'; message: string };

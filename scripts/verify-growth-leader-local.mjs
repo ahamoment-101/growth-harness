@@ -136,8 +136,10 @@ try {
     return value;
   };
   const id=crypto.randomUUID();
-  await call('conversations',{id,title:'Enterprise customer growth'});
-  await call('conversations/'+id+'/messages',{id:crypto.randomUUID(),text:'Help me research enterprise customer needs'});
+  const first = { id, title: 'Enterprise customer growth', message: { id: crypto.randomUUID(), text: 'Help me research enterprise customer needs' } };
+  if ((await call('configuration')).state !== 'configured') throw new Error('Configured model was not detected');
+  await call('start', first);
+  await call('start', first); // Lost-response replay must keep one conversation and one input.
   let detail;
   const until=Date.now()+90000;
   while(Date.now()<until) {

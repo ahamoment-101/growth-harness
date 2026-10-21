@@ -43,6 +43,35 @@ export async function createConversation(env: RuntimeAgentEnv, scope: LeaderScop
   if (!saved || saved.title !== input.title || saved.context !== (input.context || '') || saved.source_id !== (input.sourceId || '')) throw new Error('Conversation identity conflicts with existing request');
   return saved;
 }
+/** Accept the first user message and its conversation together. D1 batch is transactional.
+ * A replay must match the original scope and payload. NOT NULL guards abort the entire
+ * batch on identity conflicts, including a message ID already owned by another conversation.
+ * Internal scheduled/delegated conversations continue to use createConversation.
+ */
+export async function startConversation(env: RuntimeAgentEnv, scope: LeaderScope,
+  input: { id: string; title: string; context?: string; message: { id: string; text: string } }, actorId: string) {
+  const now = new Date().toISOString();
+  await env.DB.batch([
+    env.DB.prepare(`insert into leader_conversations(id,workspace_id,site_id,title,context,source_id,created_at)
+      values(?,?,?,case when exists(select 1 from sites where id=? and workspace_id=?) then ? else null end,?,'',?)
+      on conflict(id) do update set title=case when
+        leader_conversations.workspace_id=excluded.workspace_id and leader_conversations.site_id=excluded.site_id
+        and leader_conversations.title=excluded.title and leader_conversations.context=excluded.context
+        and leader_conversations.source_id=''
+        and exists(select 1 from leader_inputs where id=? and conversation_id=excluded.id
+          and kind='user' and actor_id=? and content=?)
+        then leader_conversations.title else null end`)
+      .bind(input.id, scope.workspaceId, scope.siteId, scope.siteId, scope.workspaceId, input.title, input.context || '', now,
+        input.message.id, actorId, input.message.text),
+    env.DB.prepare(`insert into leader_inputs(id,conversation_id,kind,actor_id,content,created_at) values(?,?,'user',?,?,?)
+      on conflict(id) do update set content=case when
+        leader_inputs.conversation_id=excluded.conversation_id and leader_inputs.kind=excluded.kind
+        and leader_inputs.actor_id=excluded.actor_id and leader_inputs.content=excluded.content
+        then leader_inputs.content else null end`)
+      .bind(input.message.id, input.id, actorId, input.message.text, now),
+  ]);
+}
+
 export async function enqueueInput(env: RuntimeAgentEnv, scope: LeaderScope, conversationId: string, input: { id: string; kind: 'user' | 'child_report' | 'assignment'; actorId: string; content: string }) {
   if (!await getConversation(env, scope, conversationId)) throw new Error('Conversation not found');
   const task = await taskForRun(env.DB, conversationId);

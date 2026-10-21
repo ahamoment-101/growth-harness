@@ -21,7 +21,7 @@ export function executionFailure(error: unknown, stage = ''): ExecutionFailure |
   if (error instanceof ExecutionFailureError) return error.failure;
   if (error instanceof ModelConfigurationError) return {
     origin: 'configuration', scope: 'account', recovery_action: 'pause',
-    message: error.message, status: 0, request_id: '', stage,
+    message: `${error.message} This task is paused and can resume after configuration is restored.`, status: 0, request_id: '', stage,
   };
   if (isRuntimeValidationError(error)) return null;
   const value = (error && typeof error === 'object' ? error : {}) as Record<string, unknown>;

@@ -146,7 +146,7 @@ Vitest discovers `worker/**/*.test.ts` in the Node environment. Add a colocated 
 
 ## Commits & Pull Requests
 
-History uses short imperative subjects (for example, `Initialize Programmatic SEO...`); keep each commit focused and explain the user-visible outcome. PRs should state scope, migration/configuration changes, and verification commands. Include screenshots for console UI changes, and link relevant issues or docs. Do not overwrite unrelated working-tree changes.
+History uses short imperative subjects (for example, `Initialize GrowthHarness...`); keep each commit focused and explain the user-visible outcome. PRs should state scope, migration/configuration changes, and verification commands. Include screenshots for console UI changes, and link relevant issues or docs. Do not overwrite unrelated working-tree changes.
 
 ## Public Core and Downstream Maintenance
 
