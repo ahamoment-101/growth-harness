@@ -7,10 +7,17 @@ import { executionFailure, type ExecutionFailure } from './execution-failure';
 import { executionEnvironment } from './execution-context';
 import { activateRuntimeExecution, createRuntimeExecution, currentExecution, authorityForExecution } from './runtime-executions';
 import type { RuntimeAgentEnv } from './env';
+import { resolveModelProfile } from './model-registry';
+import { testModelProfile, testModelRegistry } from './model-registry.test-fixture';
+import type { AgentId } from './definitions';
 const failure: ExecutionFailure = { origin: 'upstream', scope: 'request', recovery_action: 'retry_request', message: 'fetch failed', status: 0, request_id: '', stage: 'conversation' };
 const at = new Date('2026-09-08T00:00:00Z');
-async function fixture() {
-  const f = taskTestDb(); const run = f.run(); const task = await attachTask(f.db, run, agentDefinition('strategy_research'));
+async function fixture(agentId: AgentId = 'strategy_research') {
+  const f = taskTestDb(); const definition = agentDefinition(agentId);
+  const run = { ...f.run(), agent_id: agentId, definition_version: definition.definitionVersion, prompt_version: definition.promptVersion };
+  await f.db.prepare('update agent_runs set agent_id=?,definition_version=?,prompt_version=? where id=?')
+    .bind(agentId, run.definition_version, run.prompt_version, run.id).run();
+  const task = await attachTask(f.db, run, definition);
   const execution = await createRuntimeExecution(f.db, run.id);
   await activateRuntimeExecution(f.db, authorityForExecution(execution), execution.workflow_id);
   let status = 'complete';
@@ -19,6 +26,24 @@ async function fixture() {
   return {...f, task, run, execution, env, scoped:executionEnvironment(env, authorityForExecution(execution)), create, hostStatus:(value:string)=>{status=value;}};
 }
 describe('continuous execution recovery', () => {
+  it.each(['growth_leader', 'keyword_research'] as const)('stops missing-key retries for %s and preserves the original task for configuration repair', async agentId => {
+    const f = await fixture(agentId);
+    await f.db.prepare('update agent_tasks set workspace_json=?,model_calls=7 where id=?')
+      .bind('{"saved":true}', f.task.id).run();
+    const registry = { MODEL_REGISTRY: testModelRegistry({ selected: testModelProfile({ keyName: 'SELECTED_MODEL_KEY' }) }, 'selected') };
+    let missing: unknown;
+    try { resolveModelProfile(registry, agentId); } catch (error) { missing = error; }
+    await recordExecutionFailure(f.scoped, f.run.id, executionFailure(missing, 'conversation')!, at);
+    for (const day of [1, 2, 30]) await reconcileTaskExecutions(f.env, new Date(at.getTime() + day * 86400000));
+    expect(await taskForRun(f.db, f.run.id)).toMatchObject({ id: f.task.id, active_run_id: f.run.id, status: 'paused', workspace_json: '{"saved":true}', model_calls: 7 });
+    expect(await taskExecutionView(f.db, (await taskForRun(f.db, f.run.id))!)).toMatchObject({ execution_state: 'paused', allowed_actions: ['resume', 'cancel'] });
+    expect(f.create).not.toHaveBeenCalled();
+    expect(resolveModelProfile({ ...registry, SELECTED_MODEL_KEY: 'synthetic-restored-key' }, agentId).keyName).toBe('SELECTED_MODEL_KEY');
+    const resumed = await createRuntimeExecution(f.db, f.run.id, (await currentExecution(f.db, f.run.id))!, 'resume');
+    await activateRuntimeExecution(f.db, authorityForExecution(resumed), resumed.workflow_id);
+    expect(await taskForRun(f.db, f.run.id)).toMatchObject({ id: f.task.id, active_run_id: f.run.id, status: 'running', workspace_json: '{"saved":true}', model_calls: 7 });
+    expect(await f.db.prepare('select count(*) n from agent_runs').first('n')).toBe(1);
+  });
   it('repairs a committed terminal checkpoint after the host lost its final projection', async () => {
     const f=await fixture();
     await f.db.prepare("update agent_tasks set status='completed',outcome='partial',reason='Saved before crash',output_json=? where id=?").bind(JSON.stringify({artifact_refs:['saved-artifact'],unresolved_issues:['evidence gap']}),f.task.id).run();

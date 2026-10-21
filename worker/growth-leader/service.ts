@@ -16,10 +16,12 @@ import { dispatchPendingAgentEvents, pendingEventDeliveries, publicationConversa
 export type LeaderScope = { workspaceId: string; siteId: string };
 export async function getConversation(env: RuntimeAgentEnv, scope: LeaderScope, id: string) {
   return env.DB.prepare(`select ${conversationColumns} from leader_conversations c
-    left join agent_tasks t on t.active_run_id=c.id where c.id=? and c.workspace_id=? and c.site_id=?`)
+    left join agent_tasks t on t.active_run_id=c.id
+    left join agent_runtime_executions e on e.id=t.execution_id where c.id=? and c.workspace_id=? and c.site_id=?`)
     .bind(id, scope.workspaceId, scope.siteId).first<LeaderConversation>();
 }
 const conversationColumns = `c.*,coalesce(t.status,'ready') status,coalesce(t.reason,'') reason,
+    coalesce(e.status,'') execution_state,coalesce(e.retry_at,'') next_recovery_at,
     max(c.created_at,coalesce(t.updated_at,''),coalesce((select max(i.created_at) from leader_inputs i where i.conversation_id=c.id),'')) updated_at,
     coalesce((select substr(i.content,1,160) from leader_inputs i where i.conversation_id=c.id and i.kind in ('user','assignment') order by i.position limit 1),'') preview,
     (select count(*) from agent_tasks ch where t.id is not null and ch.parent_task_id=t.id and ch.status not in ('completed','cancelled','failed')) team_active,
@@ -28,7 +30,8 @@ const conversationColumns = `c.*,coalesce(t.status,'ready') status,coalesce(t.re
     (select count(*) from leader_inputs i where i.conversation_id=c.id and i.read_at is null) pending_inputs`;
 export async function listConversations(env: RuntimeAgentEnv, scope: LeaderScope) {
   return (await env.DB.prepare(`select ${conversationColumns} from leader_conversations c
-    left join agent_tasks t on t.active_run_id=c.id where c.workspace_id=? and c.site_id=? order by updated_at desc,c.id desc`)
+    left join agent_tasks t on t.active_run_id=c.id
+    left join agent_runtime_executions e on e.id=t.execution_id where c.workspace_id=? and c.site_id=? order by updated_at desc,c.id desc`)
     .bind(scope.workspaceId, scope.siteId).all<LeaderConversation>()).results;
 }
 export async function createConversation(env: RuntimeAgentEnv, scope: LeaderScope, input: { id: string; title: string; context?: string; sourceId?: string }) {

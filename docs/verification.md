@@ -10,9 +10,12 @@ node --test scripts/d1-target.test.mjs scripts/sanitize-build.test.mjs scripts/c
 npm run build
 node scripts/verify-installation-local.mjs
 npm run verify:self-hosting:local
+npm run verify:model-configuration:local
 ```
 
 Run these from the repository root on macOS, Linux or Windows. They need no paid credentials: installation and Workflow fixtures use isolated resources and synthetic model replies while exercising the real Worker, D1 and Workflow engine.
+
+The model-configuration verifier also exercises the actual missing-key path without a model substitute: new messages return actionable configuration errors, previously accepted tasks pause, and later reconciliation makes no model request or replacement execution. Set `LEADER_UI=1` to keep its isolated browser fixture running on port 5298; its printed login URL never accesses production data.
 
 CI also checks source/build boundaries, Git history credentials and dependency advisories. Builds remove Cloudflare preview environment files and reject configured local credential values in distributable output. The current-source boundary check keeps private adapters, environment/data files, internal material, `design/` and `.zcode/` out of the public tree. Downstream synchronization and public source exports have separate [maintainer checks](repository-maintenance.md).
 

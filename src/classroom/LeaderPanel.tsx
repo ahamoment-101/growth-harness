@@ -191,8 +191,9 @@ function LeaderChat({ siteId, id, view, crowd, ready, conversation, detail, onCl
   const status = conversation ?? detail?.conversation;
   const closed = !!status && isClosed(status);
   const paused = status?.status === 'paused';
-  const thinking = !!status && !closed && !paused && (status.status === 'running' || status.pending_inputs > 0);
-  const teamWorking = !!status && !closed && !thinking && status.team_active > 0;
+  const recovering = !closed && !paused && status?.execution_state === 'recovering';
+  const thinking = !!status && !closed && !paused && !recovering && (status.status === 'running' || status.pending_inputs > 0);
+  const teamWorking = !!status && !closed && !paused && !recovering && !thinking && status.team_active > 0;
   const tasks = new Map((detail?.tasks ?? []).map(t => [t.id, t]));
 
   async function send(text = draft.trim()) {
@@ -300,8 +301,9 @@ function LeaderChat({ siteId, id, view, crowd, ready, conversation, detail, onCl
           {detail?.has_earlier && !history && <button className="lp-link lp-earlier" onClick={() => void showEarlier()}>View earlier conversations</button>}
           {feedItems.map(item => item.kind === 'message' ? renderMessage(item.value) : renderHitl(item.value))}
           {thinking && <p className="lp-status active" role="status"><i /><i /><i />The Leader is thinking…</p>}
+          {recovering && <div className="lp-banner" role="status"><p><strong>The Leader is waiting to retry.</strong>{status?.reason && <> {status.reason}</>}{status?.next_recovery_at && <> Next attempt: <time dateTime={status.next_recovery_at}>{new Date(status.next_recovery_at).toLocaleString('en-US')}</time>.</>}</p></div>}
           {teamWorking && <p className="lp-status" role="status">The team is still working ({status!.team_active}  items). When there are results, the Leader will let you know here.</p>}
-          {paused && <div className="lp-banner"><p><strong>This conversation is paused.</strong>{status?.reason && <> Reason:{status.reason}</>}</p><button disabled={busy} onClick={() => void control('resume')}>Resume</button></div>}
+          {paused && <div className="lp-banner" role="alert"><p><strong>This conversation is paused.</strong>{status?.reason && <> Reason: {status.reason}</>}</p><button disabled={busy} onClick={() => void control('resume')}>Resume</button></div>}
           {status?.status === 'failed' && <div className="lp-banner"><p><strong>This conversation was interrupted by an error.</strong>{status.reason && <> {status.reason}</>} You can start a new conversation to continue.</p></div>}
           {closed && status?.status !== 'failed' && <p className="lp-note center">This conversation has ended. You can start a new conversation to keep discussing.</p>}
         </div>

@@ -47,7 +47,7 @@ export default function PageSettings({
         <>
           <Link className="muted" to={sitePage(site.id)}>Main screen</Link>
           <span className="sep">›</span>
-          <span className="muted">Programmatic SEO</span>
+          <span className="muted">GrowthHarness</span>
           <span className="sep">›</span>
           <span className="cur">Page Settings</span>
         </>

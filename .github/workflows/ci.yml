@@ -27,6 +27,7 @@ jobs:
       - run: node scripts/check-public-boundary.mjs --artifacts dist
       - run: node scripts/verify-installation-local.mjs
       - run: npm run verify:self-hosting:local
+      - run: npm run verify:model-configuration:local
       - run: npm audit --registry=https://registry.npmjs.org --audit-level=moderate
   credentials:
     runs-on: ubuntu-latest

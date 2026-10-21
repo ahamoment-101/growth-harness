@@ -1,6 +1,7 @@
 /** `updated_at` is the latest of creation, any input and the Run's own status change. */
 export type LeaderConversation = { id: string; title: string; context: string; source_id: string; created_at: string; status: string; reason: string;
-  updated_at: string; preview: string; team_active: number; team_delivered: number; team_total: number; pending_inputs: number };
+  updated_at: string; preview: string; team_active: number; team_delivered: number; team_total: number; pending_inputs: number;
+  execution_state?: string; next_recovery_at?: string };
 /** Timeline in the order the Leader read it; `pending` inputs are accepted but not yet read. */
 export type LeaderMessage = { id: string; role: 'user' | 'assistant' | 'report' | 'assignment' | 'task' | 'event'; text: string; created_at: string;
   pending?: boolean; task_id?: string; summary?: string };

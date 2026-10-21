@@ -448,7 +448,7 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
   });
   const text = await res.text();
-  let data: (T & { error?: string }) | null = null;
+  let data: (T & { error?: string; code?: string }) | null = null;
   if (text) {
     try {
       data = JSON.parse(text) as T & { error?: string };
@@ -462,7 +462,9 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
       redirectToLogin();
       throw new Error('Session expired, please log in again');
     }
-    throw new Error(data?.error || res.statusText || `Request failed (${res.status})`);
+    throw Object.assign(new Error(data?.error || res.statusText || `Request failed (${res.status})`), {
+      code: typeof data?.code === 'string' ? data.code : '', status: res.status,
+    });
   }
   if (!data) throw new Error('The server returned an unrecognized response');
   return data;

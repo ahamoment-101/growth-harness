@@ -6,7 +6,7 @@
 
 ## Background and Core Principles
 
-blog-agent is a multi-tenant content factory: the customer points a subdomain CNAME at us, and we serve crawlable blog HTML. Each site can produce articles in multiple languages, letting Google index and rank the different language versions as **independent SEO pages**.
+GrowthHarness is a self-hosted content workspace: the owner can point a subdomain CNAME at their deployment to serve crawlable blog HTML. Each site can produce articles in multiple languages, letting Google index and rank the different language versions as **independent SEO pages**.
 
 **Core principle: share one domain authority; do not use subdomains or different top-level domains.**
 

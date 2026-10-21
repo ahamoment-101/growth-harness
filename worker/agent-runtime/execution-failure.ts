@@ -1,7 +1,8 @@
 import { classifyRuntimeModelFailure, isRuntimeValidationError } from './model-errors';
+import { ModelConfigurationError } from './model-registry';
 
 export type ExecutionFailure = {
-  origin: 'local_platform' | 'upstream' | 'unknown';
+  origin: 'configuration' | 'local_platform' | 'upstream' | 'unknown';
   scope: 'execution' | 'account' | 'request' | 'unknown';
   recovery_action: 'new_execution' | 'retry_request' | 'pause';
   message: string; status: number; request_id: string; stage: string;
@@ -18,6 +19,10 @@ const INACTIVE_HOST_MESSAGE = /^Connection closed: this Durable Object instance 
 // replacing an execution. Provider text alone is never proof of local exhaustion.
 export function executionFailure(error: unknown, stage = ''): ExecutionFailure | null {
   if (error instanceof ExecutionFailureError) return error.failure;
+  if (error instanceof ModelConfigurationError) return {
+    origin: 'configuration', scope: 'account', recovery_action: 'pause',
+    message: error.message, status: 0, request_id: '', stage,
+  };
   if (isRuntimeValidationError(error)) return null;
   const value = (error && typeof error === 'object' ? error : {}) as Record<string, unknown>;
   if (value.name === 'ZodError' || value.name === '$ZodError' || value.name === 'ToolContractError' || value.name === 'ToolExecutionError') return null;

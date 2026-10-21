@@ -105,7 +105,7 @@ export default function Settings({
         <>
           <Link className="muted" to={sitePage(site.id)}>Main screen</Link>
           <span className="sep">›</span>
-          <span className="muted">Programmatic SEO</span>
+          <span className="muted">GrowthHarness</span>
           <span className="sep">›</span>
           <span className="cur">Configuration</span>
         </>
@@ -140,7 +140,7 @@ export default function Settings({
             </div>
             <div className="kv">
               <div className="kv-k">
-                Blog Subdomain<span className="sub">Programmatic SEO Hosting</span>
+                Blog Subdomain<span className="sub">GrowthHarness Hosting</span>
               </div>
               <div className="kv-v">
                 <input className="input mono" value={domain} onChange={(e) => setDomain(e.target.value)} placeholder={site.root_domain ? `blog.${site.root_domain}` : 'blog.example.com'} />

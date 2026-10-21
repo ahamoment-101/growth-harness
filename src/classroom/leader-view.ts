@@ -22,10 +22,11 @@ const closedStates = ['completed', 'cancelled', 'failed'];
 export const isClosed = (c: Pick<LeaderConversation, 'status'>) => closedStates.includes(c.status);
 
 /** What the person needs to know about a conversation, not the Run's internal state. */
-export function conversationPhase(c: Pick<LeaderConversation, 'status' | 'team_active' | 'pending_inputs'>): Phase {
+export function conversationPhase(c: Pick<LeaderConversation, 'status' | 'team_active' | 'pending_inputs' | 'execution_state'>): Phase {
   if (c.status === 'failed') return { label: 'Interrupted by error', tone: 'alert' };
   if (closedStates.includes(c.status)) return { label: 'Ended', tone: 'done' };
   if (c.status === 'paused') return { label: 'Paused', tone: 'alert' };
+  if (c.execution_state === 'recovering') return { label: 'Waiting to retry', tone: 'waiting' };
   if (c.status === 'running' || c.pending_inputs > 0) return { label: 'Leader is thinking', tone: 'active' };
   if (c.team_active > 0) return { label: 'Team working', tone: 'active' };
   if (c.status === 'ready') return { label: 'Not started yet', tone: 'idle' };
@@ -103,6 +104,7 @@ const errors: Array<[RegExp, string]> = [
 ];
 export function friendlyError(error: unknown, fallback: string): string {
   const message = error instanceof Error ? error.message : String(error ?? '');
+  if (error instanceof Error && (error as Error & { code?: string }).code === 'model_configuration_required') return message;
   return errors.find(([pattern]) => pattern.test(message))?.[1] || fallback;
 }
 

@@ -3,6 +3,7 @@ import { DatabaseSync } from 'node:sqlite';
 // @ts-ignore Node test-only modules.
 import { readFileSync, readdirSync } from 'node:fs';
 import type { D1Database } from '@cloudflare/workers-types';
+import { sqliteTestBindings } from './sqlite-test-bindings';
 
 /** Full production schema (every migration) behind a minimal D1 shim that records each prepared statement. */
 export function schemaTestDb() {
@@ -18,9 +19,9 @@ export function schemaTestDb() {
     let values: unknown[] = [];
     const statement = {
       bind: (...args: unknown[]) => { values = args; return statement; },
-      first: async <T>(column?: string) => { count(); const row = sqlite.prepare(sql).get(...values as never[]) as Record<string, unknown> | undefined; return ((column ? row?.[column] : row) ?? null) as T; },
-      all: async () => { count(); return { results: sqlite.prepare(sql).all(...values as never[]) }; },
-      run: async () => ({ meta: { changes: Number(sqlite.prepare(sql).run(...values as never[]).changes) } }),
+      first: async <T>(column?: string) => { count(); const row = sqlite.prepare(sql).get(...sqliteTestBindings(sql, values)) as Record<string, unknown> | undefined; return ((column ? row?.[column] : row) ?? null) as T; },
+      all: async () => { count(); return { results: sqlite.prepare(sql).all(...sqliteTestBindings(sql, values)) }; },
+      run: async () => ({ meta: { changes: Number(sqlite.prepare(sql).run(...sqliteTestBindings(sql, values)).changes) } }),
     };
     return statement;
   };

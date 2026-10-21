@@ -51,7 +51,7 @@ export default function Keywords({ site, sites }: { site: Site; sites: Site[] })
   }
   function applyFilter(parent: { id: string; name: string }) { setFilter(parent); setView('keywords'); setSearch(''); setDraft(''); }
 
-  return <Shell sites={sites} site={site} active="keywords" crumb={<><span className="muted">Programmatic SEO</span><span className="sep">›</span><span className="cur">Keyword Library</span></>}>
+  return <Shell sites={sites} site={site} active="keywords" crumb={<><span className="muted">GrowthHarness</span><span className="sep">›</span><span className="cur">Keyword Library</span></>}>
     <div className="kl-page">
       <header className="kl-heading">
         <div>

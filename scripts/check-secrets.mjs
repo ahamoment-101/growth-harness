@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 const root = process.cwd();
 const binary = process.env.GITLEAKS_BINARY || 'gitleaks';
-const directory = mkdtempSync(join(tmpdir(), 'blog-agent-secret-scan-'));
+const directory = mkdtempSync(join(tmpdir(), 'growth-harness-secret-scan-'));
 function scan(args) {
   const result = spawnSync(binary, [...args, '--config', resolve(root, '.gitleaks.toml'), '--redact', '--no-banner', '--verbose'], { stdio: 'inherit' });
   if (result.error || result.status !== 0) throw new Error('Credential scan failed; inspect redacted diagnostics');

@@ -39,7 +39,7 @@ export function Shell({
                 child
               />
               <NavItem to={sitePage(current.id, 'triggers')} label="Trigger Mechanism" active={active === 'triggers'} child />
-              <p className="side-group">Programmatic SEO</p>
+              <p className="side-group">GrowthHarness</p>
               <NavItem to={sitePage(current.id, 'content-list')} label="Content List" active={active === 'content-list' || active === 'content-article'} child />
               <NavItem to={sitePage(current.id, 'page-settings')} label="Page Settings" active={active === 'page-settings'} child />
               <NavItem to={sitePage(current.id, 'keywords')} label="Keyword Library" active={active === 'keywords'} child />

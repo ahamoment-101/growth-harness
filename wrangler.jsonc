@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "programmatic-seo",
+  "name": "growth-harness",
   "main": "./worker/index.ts",
   "compatibility_date": "2026-08-18",
   "compatibility_flags": ["nodejs_compat"],
@@ -16,13 +16,13 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "programmatic-seo",
+      "database_name": "growth-harness",
       // Local-only placeholder: Miniflare requires a non-empty ID. Replace with your D1 ID before deployment.
       "database_id": "00000000-0000-0000-0000-000000000000",
       "migrations_dir": "migrations"
     }
   ],
-  "r2_buckets": [{ "binding": "RESEARCH_BUCKET", "bucket_name": "programmatic-seo-research" }],
+  "r2_buckets": [{ "binding": "RESEARCH_BUCKET", "bucket_name": "growth-harness-research" }],
   "durable_objects": {
     "bindings": [
       {
@@ -76,7 +76,7 @@
   },
   "vars": {
     // Model defaults: shared/config/agent-models.json. MODEL_REGISTRY is an optional full override.
-    "CLOUDFLARE_WORKER_NAME": "programmatic-seo",
+    "CLOUDFLARE_WORKER_NAME": "growth-harness",
     "AGENT_RUNTIME_ENABLED": "true",
     "AUTH_LOGIN_METHODS": "password",
     "AUTH_ALLOWED_GOOGLE_EMAIL": "",

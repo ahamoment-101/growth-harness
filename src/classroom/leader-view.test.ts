@@ -1,14 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { conversationPhase, conversationTitle, groupConversations, groupLeaderTasks, mergeHistory, mergeLeaderFeed, relativeTime, taskPhase, titleFromMessage } from './leader-view';
+import { conversationPhase, conversationTitle, friendlyError, groupConversations, groupLeaderTasks, mergeHistory, mergeLeaderFeed, relativeTime, taskPhase, titleFromMessage } from './leader-view';
 import type { LeaderConversation, LeaderTask } from '../../shared/growth-leader';
 
 const base: LeaderConversation = { id: 'a', title: 'New Conversation', context: '', source_id: '', created_at: '2026-09-21T00:00:00Z', status: 'waiting', reason: '', updated_at: '2026-09-21T00:00:00Z', preview: '', team_active: 0, team_delivered: 0, team_total: 0, pending_inputs: 0 };
 
 describe('leader view', () => {
+  it('shows structured model configuration guidance while retaining generic feedback for unclassified errors', () => {
+    const error = Object.assign(new Error('SELECTED_MODEL_KEY is not set. Add it to .dev.vars and restart.'), { code: 'model_configuration_required' });
+    expect(friendlyError(error, 'Please try again')).toBe(error.message);
+    expect(friendlyError(new Error('Internal execution detail'), 'Please try again')).toBe('Please try again');
+  });
   it('describes a conversation by what the person should expect next', () => {
     expect(conversationPhase(base).label).toBe('Waiting for your reply');
     expect(conversationPhase({ ...base, pending_inputs: 1 }).label).toBe('Leader is thinking');
     expect(conversationPhase({ ...base, status: 'running' }).label).toBe('Leader is thinking');
+    expect(conversationPhase({ ...base, status: 'paused', pending_inputs: 1 }).label).toBe('Paused');
+    expect(conversationPhase({ ...base, status: 'running', execution_state: 'recovering', pending_inputs: 1 }).label).toBe('Waiting to retry');
     expect(conversationPhase({ ...base, team_active: 2 }).label).toBe('Team working');
     expect(conversationPhase({ ...base, status: 'ready' }).label).toBe('Not started yet');
     expect(conversationPhase({ ...base, status: 'cancelled', team_active: 1 }).label).toBe('Ended');

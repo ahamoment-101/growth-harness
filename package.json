@@ -23,6 +23,7 @@
     "secrets:upload": "node scripts/secrets-upload.ts",
     "auth:reset": "node scripts/auth-reset.ts",
     "verify:self-hosting:local": "node scripts/verify-self-hosting-local.mjs",
+    "verify:model-configuration:local": "node scripts/verify-model-configuration-local.mjs",
     "core:sync": "node scripts/sync-public-core.mjs",
     "test:sync": "node --test scripts/sync-public-core.test.mjs",
     "release:check": "node scripts/check-public-boundary.mjs --export && node scripts/check-public-boundary.mjs --export --history && node scripts/check-public-boundary.mjs --export --artifacts dist"

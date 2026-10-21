@@ -36,7 +36,7 @@ const sql = `insert into auth_password_credentials(user_id,password_hash,updated
   select u.id,${quote(passwordHash)},${quote(at)} from app_users u join workspaces w on w.owner_user_id=u.id
   where w.id='primary-workspace' and u.email=${quote(email)}
   on conflict(user_id) do update set password_hash=excluded.password_hash,updated_at=excluded.updated_at returning user_id;`;
-const directory = mkdtempSync(join(tmpdir(), 'blog-agent-auth-reset-'));
+const directory = mkdtempSync(join(tmpdir(), 'growth-harness-auth-reset-'));
 try {
   const path = join(directory, 'reset.sql');
   writeFileSync(path, sql, { mode: 0o600 });

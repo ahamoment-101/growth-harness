@@ -36,7 +36,7 @@ export default function Login({ auth, error: configurationError }: { auth?: Auth
               <rect x="14" y="14" width="7" height="7" rx="2" />
             </svg>
           </span>
-          <span>PROGRAMMATIC SEO TEAM</span>
+          <span>GrowthHarness</span>
         </div>
         <h1 id="login-title">{setup ? 'Create Your Admin Account' : 'Back to Your Marketing Team'}</h1>
         <p className="login-description">After logging in, continue viewing team progress, agent work logs, and content results.</p>

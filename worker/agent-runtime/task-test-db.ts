@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import type { D1Database } from '@cloudflare/workers-types';
 import type { AgentRun } from './protocol';
 import { agentDefinition } from './definitions';
+import { sqliteTestBindings } from '../lib/sqlite-test-bindings';
 export function taskTestDb() {
   const sqlite = new DatabaseSync(':memory:');
   sqlite.exec("create table sites(id text primary key); insert into sites values('s');");
@@ -25,9 +26,9 @@ export function taskTestDb() {
     let values: unknown[] = [];
     const statement = {
       bind: (...args: unknown[]) => { values = args; return statement; },
-      first: async <T>(column?: string) => { counted(); const row = sqlite.prepare(sql).get(...values as never[]) as Record<string, unknown> | undefined; return (column ? row?.[column] : row) as T ?? null; },
-      all: async <T>() => { counted(); return { results: sqlite.prepare(sql).all(...values as never[]) as T[] }; },
-      run: async () => { counted(); return { meta: { changes: Number(sqlite.prepare(sql).run(...values as never[]).changes) } }; },
+      first: async <T>(column?: string) => { counted(); const row = sqlite.prepare(sql).get(...sqliteTestBindings(sql, values)) as Record<string, unknown> | undefined; return (column ? row?.[column] : row) as T ?? null; },
+      all: async <T>() => { counted(); return { results: sqlite.prepare(sql).all(...sqliteTestBindings(sql, values)) as T[] }; },
+      run: async () => { counted(); return { meta: { changes: Number(sqlite.prepare(sql).run(...sqliteTestBindings(sql, values)).changes) } }; },
     };
     return statement;
   };

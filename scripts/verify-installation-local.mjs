@@ -9,7 +9,7 @@ import { fixtureModelRegistry } from './runtime-fixture-capabilities.mjs';
 import { verifyPassword } from '../worker/lib/auth/password.ts';
 
 const root = process.cwd();
-const directory = await mkdtemp(join(tmpdir(), 'blog-agent-installation-'));
+const directory = await mkdtemp(join(tmpdir(), 'growth-harness-installation-'));
 const configPath = join(directory, 'wrangler.jsonc');
 const config = readWrangler();
 config.main = resolve(root, 'worker/index.ts');

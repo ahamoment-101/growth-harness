@@ -1,14 +1,17 @@
 # GrowthHarness
 
-A persistent Agent Harness for content growth, starting with SEO research, writing, review, and publishing. The shared Runtime manages task identity, persistent conversations, execution recovery, tool permissions, and audits. Domain Agents choose business actions through their own prompts and tools.
+A self-hosted AI content team that researches your business, plans SEO content, writes drafts, and brings articles to you for publishing approval.
 
-**Self-evolution roadmap:** Continuous execution and feedback-driven correction within a task have been verified. Learning across tasks, automatically reusing that experience, and evaluating improvements remain under development. The current version does not claim to optimize its own Harness or demonstrate SEO growth.
+Give the Growth Leader a goal, follow the team's work in the classroom, and review what it produces before anything goes live.
 
-The self-hosted workspace brings together business documents, research, a keyword library, topic selection, writing, and human publishing review. The React/Vite console and hosted articles run on Cloudflare Workers, using D1, R2, Durable Objects, and Workflows for storage and execution.
+![GrowthHarness classroom showing the Growth Leader and specialist agents](docs/images/classroom.png)
 
-Each installation supports one owner workspace. Email and password login is the default; Google login is optional and public registration is disabled. You provide your own model and research service credentials. The repository includes no API keys or service credits.
+*The actual console running locally with sample data.*
 
-The console and operational reports use English. Target-market research and published articles retain their independently configured languages.
+- **Build shared business context.** Keep product facts and research available to the team.
+- **Move from research to drafts.** Work through keyword research, topic selection, writing, and independent review.
+- **Follow ongoing work.** Open a team member's task to inspect progress, deliverables, and blockers.
+- **Keep publishing under your control.** Review articles and approve publication from the same workspace.
 
 ## Getting Started Locally
 
@@ -25,6 +28,15 @@ npm run dev
 `setup` prepares `.dev.vars`, generates initialization codes and signing keys, and applies local migrations without overwriting existing keys or model choices. Open the address output by the development server, and on the initialization page, enter your email, a password of at least 12 characters, and the `AUTH_SETUP_TOKEN` from `.dev.vars`. Once the administrator is established, initialization is closed.
 
 After logging in, add a site and enter the classroom. Before running Agents, put `OPENROUTER_API_KEY` in `.dev.vars`; all default model choices and per-Agent reasoning live in [`shared/config/agent-models.json`](shared/config/agent-models.json). The preset uses GLM 5.3 Flash for planning/review and Gemini 3.8 Flash for writing, both through OpenRouter; no additional model key is needed. To use native OpenAI, Anthropic or a custom endpoint, see [model connections](docs/model-channel.md). Configure research, keyword data and GSC only when needed.
+
+Set the key before sending your first task, then restart the development server:
+
+```dotenv
+# .dev.vars
+OPENROUTER_API_KEY=replace-with-your-key
+```
+
+If the selected model key is missing, the console shows the required variable and setup instructions. Existing tasks pause without repeated model attempts and can resume after the configuration is restored.
 
 ### Local Runtime and Data
 
@@ -51,6 +63,7 @@ Successful queries are saved by site, language and country with source, observat
 
 ## Configuration and Deployment
 
+- [First-Run Verification](docs/launch-readiness.md): Missing-key recovery, presentation checks, and verification limits.
 - [Configuration Guide](docs/configuration.md): Purpose, service portal, required conditions, costs, and impact of absence for each configuration item.
 - [Self-Hosting and Upgrades](docs/self-hosting.md): Your own Cloudflare resources, Secrets, deployment, migration of existing Google users, and password resets.
 - [Verification Guide](docs/verification.md): Local checks and opt-in model/publication acceptance.
@@ -69,6 +82,16 @@ Follow the [local verification checklist](docs/verification.md#local-checks). De
 - [Continuous Runtime Contract](docs/continuous-agent-runtime.md), [Cloudflare Architecture](docs/cloudflare-architecture.md), [Optional Webhook Export](docs/ingest-contract.md).
 
 Publishing retains manual review; Webhook is an optional export method. Do not commit passwords, model Keys, or production business data.
+
+## Current Scope
+
+Each installation has one owner workspace. Email and password login is the default; Google login is optional and public registration is disabled. Model and research services use your own credentials and may incur provider charges.
+
+The console and operational reports use English. Research and published articles use their independently configured target languages.
+
+The shared Runtime preserves task identity and conversation history, handles execution recovery and tool permissions, and supports autonomous audits. Domain Agents choose business actions through their prompts and tools. Continuous execution and within-task feedback have been verified; cross-task learning and automatic Harness improvement remain roadmap work. SEO growth outcomes require separate measurement.
+
+The React/Vite console and hosted articles run on Cloudflare Workers, with D1, R2, Durable Objects, and Workflows for storage and execution.
 
 ## License and Maintenance
 

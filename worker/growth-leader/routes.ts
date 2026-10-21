@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { RuntimeAgentEnv } from '../agent-runtime/env';
 import { createConversation, enqueueInput, listConversations, readLeaderDetail, wakeConversation, type LeaderScope } from './service';
 import { dispatchPendingAgentEvents } from '../agent-events/pool';
+import { ModelConfigurationError, resolveModelProfile } from '../agent-runtime/model-registry';
 const create = z.object({ id: z.string().uuid(), title: z.string().trim().min(1).max(200), context: z.string().max(20000).optional() });
 const message = z.object({ id: z.string().uuid(), text: z.string().trim().min(1).max(20000) });
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { 'Cache-Control': 'private, no-store' } });
@@ -19,6 +20,8 @@ export async function handleLeaderRequest(request: Request, env: RuntimeAgentEnv
     }
     if (match[2] && request.method === 'POST') {
       const input = message.parse(await request.json());
+      // Reject before accepting unread input; the client retains the person's draft.
+      resolveModelProfile(env, 'growth_leader');
       await enqueueInput(env,scope,id,{id:input.id,kind:'user',actorId,content:input.text});
       // Acceptance is durable. Dispatch failures remain recoverable without resending the user's text.
       ctx.waitUntil(wakeConversation(env,scope,id).then(() => dispatchPendingAgentEvents(env))
@@ -26,5 +29,8 @@ export async function handleLeaderRequest(request: Request, env: RuntimeAgentEnv
       return json({accepted:true,id:input.id},202);
     }
     return json({error:'method not supported'},405);
-  } catch (error) { return json({error:error instanceof Error ? error.message : String(error)}, error instanceof z.ZodError ? 400 : 409); }
+  } catch (error) {
+    if (error instanceof ModelConfigurationError) return json({ error: error.message, code: error.code }, 503);
+    return json({error:error instanceof Error ? error.message : String(error)}, error instanceof z.ZodError ? 400 : 409);
+  }
 }

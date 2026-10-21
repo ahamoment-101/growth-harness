@@ -73,7 +73,7 @@ const runtime = new Miniflare(convertV4MiniflareOptions({
   compatibilityDate: '2026-08-18', compatibilityFlags: ['nodejs_compat'], d1Databases: ['DB'],
   workflows: { AGENT_WORKFLOW: { name: 'local-panel', className: 'AgentRuntimeWorkflow' } },
   durableObjects: { AGENT_SHELL: { className: 'AgentShell', useSQLite: true }, SITE_ROOM: { className: 'SiteRoom', useSQLite: true } },
-  bindings: { AUTH_LOGIN_METHODS: 'password', AUTH_SETUP_TOKEN: 'isolated-fixture-initialization-token', AGENT_RUNTIME_ENABLED: 'true' },
+  bindings: { OPENROUTER_API_KEY: 'synthetic-fixture-key-not-a-real-credential', AUTH_LOGIN_METHODS: 'password', AUTH_SETUP_TOKEN: 'isolated-fixture-initialization-token', AGENT_RUNTIME_ENABLED: 'true' },
   outboundService: async () => new Response('External calls disabled in UI fixture', { status: 503 }),
   serviceBindings: { ASSETS: async request => {
     const root = resolve('dist/client');

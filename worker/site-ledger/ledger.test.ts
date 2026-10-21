@@ -22,7 +22,7 @@ function fixture() {
       async first() { return execute().get(...values as never[]) || null; },
       async all() { return { results: execute().all(...values as never[]) }; },
       async run() { return { meta: { changes: Number(execute().run(...values as never[]).changes) } }; },
-      async batchResult() { const s = execute(); return s.columns().length ? { results: s.all(...values as never[]), meta: { changes: 0 } } : { results: [], meta: { changes: Number(s.run(...values as never[]).changes) } }; },
+      async batchResult() { const s = execute(); return /^\s*(select|with|pragma)\b/i.test(sql) ? { results: s.all(...values as never[]), meta: { changes: 0 } } : { results: [], meta: { changes: Number(s.run(...values as never[]).changes) } }; },
     };
     return statement;
   };

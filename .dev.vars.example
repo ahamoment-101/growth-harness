@@ -37,7 +37,7 @@ GSC_TOKEN_CIPHER_KEY=
 CLOUDFLARE_ACCOUNT_ID=
 CLOUDFLARE_API_TOKEN=
 # Must match wrangler.jsonc name when custom-domain diagnostics are used.
-CLOUDFLARE_WORKER_NAME=programmatic-seo
+CLOUDFLARE_WORKER_NAME=growth-harness
 CNAME_TARGET=
 # Optional IndexNow.
 INDEXNOW_KEY=

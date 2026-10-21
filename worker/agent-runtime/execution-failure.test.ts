@@ -1,8 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { executionFailure, encodeExecution, encodeExecutionBoundary, decodeExecution, ExecutionFailureError } from './execution-failure';
 import { encodeTaskStep, decodeTaskStep } from './task-step-result';
+import { resolveModelProfile } from './model-registry';
+import { testModelProfile, testModelRegistry } from './model-registry.test-fixture';
 const message = 'Too many subrequests by single Worker invocation. To configure this limit, refer to the docs';
 describe('execution failure boundary', () => {
+  it('pauses missing model credentials as configuration across a durable boundary without matching error text', async () => {
+    const profile = testModelProfile({ keyName: 'SELECTED_MODEL_KEY' });
+    const env = { MODEL_REGISTRY: testModelRegistry({ selected: profile }, 'selected') };
+    const result = JSON.parse(JSON.stringify(await encodeExecutionBoundary(async () => resolveModelProfile(env), 'conversation')));
+    expect(result.failure).toMatchObject({ origin: 'configuration', scope: 'account', recovery_action: 'pause', status: 0 });
+    expect(result.failure.message).toContain('SELECTED_MODEL_KEY is not set');
+    expect(result.failure.message).toContain('.dev.vars');
+    expect(result.failure.message).toContain('Cloudflare Secrets');
+    expect(() => decodeExecution(result)).toThrow(ExecutionFailureError);
+    expect(executionFailure(new Error(result.failure.message))).toBeNull();
+  });
   it.each([message, message.replace('subrequests', 'API requests'), 'Worker exceeded CPU time limit.', 'Worker exceeded CPU limit'])('retains native capacity evidence across a durable JSON round trip: %s', async (message) => {
     const result = JSON.parse(JSON.stringify(await encodeExecution(async () => { throw new Error(message); }, 'model_fetch')));
     expect(result.failure).toMatchObject({origin: 'local_platform', scope: 'execution', recovery_action: 'new_execution', stage: 'model_fetch'});

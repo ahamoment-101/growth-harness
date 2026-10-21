@@ -6,6 +6,7 @@ import { markSeen, readTeamStatus } from './index';
 import { mergeBubbles } from './merge';
 import type { TeamSignal } from './signals';
 import { taskSignals, type TaskFact } from './task-rules';
+import { sqliteTestBindings } from '../lib/sqlite-test-bindings';
 
 const task = (over: Partial<TaskFact> & Pick<TaskFact, 'id' | 'agent_id' | 'status'>): TaskFact => ({
   outcome: '', parent_task_id: '', parent_agent_id: '', updated_at: '2026-09-19T10:00:00.000Z', ...over,
@@ -73,9 +74,9 @@ function siteDb() {
   `);
   const statement = (sql: string, values: unknown[] = []) => ({
     bind: (...next: unknown[]) => statement(sql, next),
-    first: async <T>() => (sqlite.prepare(sql).get(...values as never[]) as T | undefined) ?? null,
-    all: async <T>() => ({ results: sqlite.prepare(sql).all(...values as never[]) as T[] }),
-    run: async () => ({ meta: { changes: sqlite.prepare(sql).run(...values as never[]).changes } }),
+    first: async <T>() => (sqlite.prepare(sql).get(...sqliteTestBindings(sql, values)) as T | undefined) ?? null,
+    all: async <T>() => ({ results: sqlite.prepare(sql).all(...sqliteTestBindings(sql, values)) as T[] }),
+    run: async () => ({ meta: { changes: sqlite.prepare(sql).run(...sqliteTestBindings(sql, values)).changes } }),
   });
   return { sqlite, db: { prepare: (sql: string) => statement(sql) } as unknown as D1Database };
 }
