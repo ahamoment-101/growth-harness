@@ -94,6 +94,8 @@ The shared Runtime preserves task identity and conversation history, handles exe
 
 The React/Vite console and hosted articles run on Cloudflare Workers, with D1, R2, Durable Objects, and Workflows for storage and execution.
 
+Local development needs no Cloudflare account. On a deployed installation, the Workers Free plan's per-invocation CPU time and subrequest limits, together with its daily D1 read quota, can stop long-running Agent tasks before they finish. Before production use, upgrade to the Workers Paid plan (from US$5 per month), then raise `limits` in `wrangler.jsonc` to match your plan's current [platform limits](https://developers.cloudflare.com/workers/platform/limits/).
+
 ## License and Maintenance
 
 The code is licensed under [MIT](LICENSE); third-party materials retain their [original license notices](THIRD_PARTY_NOTICES.md). Builds simultaneously generate browser and Worker dependency notices, shipping `THIRD_PARTY_LICENSES.txt` with the application. To participate in development, see [CONTRIBUTING](CONTRIBUTING.md); please report security issues privately per [SECURITY](SECURITY.md); standard issues can use repository Issue templates.
