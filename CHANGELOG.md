@@ -18,6 +18,10 @@ Every release lists, under **Upgrade notes**, each new migration by file name, a
 - CI uses `actions/checkout` 7.0.1 and `actions/setup-node` 7.1.0.
 - `@cloudflare/workers-types` is pinned to an exact version instead of `latest`.
 
+### Security
+
+- Vitest 4.1.12 addresses GHSA-qxg6-89mg-rqv8 and GHSA-xp26-3454-mjgp. Vitest is test tooling only and is not part of the deployed Worker.
+
 ### Upgrade notes
 
 - None. No migration, configuration or deployment change.
