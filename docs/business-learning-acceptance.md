@@ -29,6 +29,8 @@ The offline verifier passed in the working checkout. Its second invocation in th
 
 Pre-merge CI exposed an outdated synthetic delegation in the self-hosting verifier: the current Leader contract requires an explicit `practice_ref`, while the fixture omitted it. The coordination-only fixture now passes `null` and checks the returned `learning_practice_ref` is also null. The focused self-hosting check passed with real local Workflow/D1, child report delivery and acknowledgment in the original conversation. This changes only the verifier, not production prompts, tools or Runtime behavior, and makes no real-model or growth claim.
 
+The next CI run passed functional, installation and build checks but failed its final dependency audit. The lockfile now resolves `body-parser` 2.4.0 and `fast-uri` 3.1.9; a scoped Miniflare override selects the already-used `undici` 7.30.1. Cloudflare package versions and application source remain unchanged. A clean lockfile installation and the focused real local Workflow/D1 self-hosting check passed with these dependencies; the dependency audit reports zero vulnerabilities. Advisory references: [body-parser](https://github.com/advisories/GHSA-27r3-jxmh-p828), [fast-uri](https://github.com/advisories/GHSA-w74x-v6f9-j3xg), [undici](https://github.com/advisories/GHSA-4qv8-2p9j-2685).
+
 The screenshot is a synthetic fixture. It has no real customer, publication or outcome data. Browser navigation was verified in Ego Lite; its screenshot endpoint timed out, so the in-app browser was used for the captured image and narrow viewport inspection.
 
 ## Real external retrieval

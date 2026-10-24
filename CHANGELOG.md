@@ -23,6 +23,7 @@ Every release lists, under **Upgrade notes**, each new migration by file name, a
 
 ### Security
 
+- Refresh transitive `body-parser` and `fast-uri` dependencies and override Miniflare's `undici` to 7.30.1 to address the pre-merge dependency audit. Cloudflare tool versions remain unchanged.
 - Vitest 4.1.12 addresses GHSA-qxg6-89mg-rqv8 and GHSA-xp26-3454-mjgp. Vitest is test tooling only and is not part of the deployed Worker.
 
 ### Upgrade notes
