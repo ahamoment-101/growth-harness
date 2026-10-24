@@ -238,9 +238,75 @@ function safeLink(value: string): boolean {
   return !/^[a-z][a-z0-9+.-]*:/i.test(cleaned) || /^(https?:|mailto:|tel:|article:)/i.test(cleaned);
 }
 
+type EmphasisDelimiter = {
+  position: number;
+  length: number;
+  remaining: number;
+  canClose: boolean;
+  opens: string[];
+  closes: string[];
+};
+
+/** Match delimiter runs before emitting tags, so inner emphasis cannot consume an outer marker. */
+function emphasis(text: string): string {
+  const parts: Array<string | EmphasisDelimiter> = [];
+  const openers: EmphasisDelimiter[] = [];
+  // A failed search rules out that prefix for the same flanking/modulo-three class.
+  const lowerBounds = [-1, -1, -1, -1, -1, -1];
+  const punctuation = (value: string) => /[\p{P}\u0021-\u002f\u003a-\u0040\u005b-\u0060\u007b-\u007e]/u.test(value);
+  const whitespace = (value: string) => !value || /\s/u.test(value);
+  let end = 0;
+  for (const match of text.matchAll(/\\([\\*])|\*+/g)) {
+    parts.push(text.slice(end, match.index));
+    end = match.index + match[0].length;
+    if (match[1]) {
+      parts.push(match[1]);
+      continue;
+    }
+    const before = /.$/u.exec(text.slice(Math.max(0, match.index - 2), match.index))?.[0] || '';
+    const after = /^./u.exec(text.slice(end, end + 2))?.[0] || '';
+    const canOpen = !whitespace(after) && (!punctuation(after) || whitespace(before) || punctuation(before));
+    const canClose = !whitespace(before) && (!punctuation(before) || whitespace(after) || punctuation(after));
+    const closer: EmphasisDelimiter = {
+      position: match.index, length: match[0].length, remaining: match[0].length, canClose, opens: [], closes: [],
+    };
+    parts.push(closer);
+    const boundary = (canOpen ? 3 : 0) + closer.length % 3;
+    while (canClose && closer.remaining) {
+      let index = openers.length - 1;
+      while (index >= 0 && openers[index].position > lowerBounds[boundary]) {
+        const opener = openers[index];
+        // Ambidextrous runs obey Markdown's rule of three; unmatched markers stay literal.
+        if (!((opener.canClose || canOpen) && (opener.length + closer.length) % 3 === 0 &&
+          (opener.length % 3 !== 0 || closer.length % 3 !== 0))) break;
+        index -= 1;
+      }
+      if (index < 0 || openers[index].position <= lowerBounds[boundary]) {
+        lowerBounds[boundary] = openers.at(-1)?.position ?? -1;
+        break;
+      }
+      const opener = openers[index];
+      const size = Math.min(opener.remaining, closer.remaining) >= 2 ? 2 : 1;
+      const tag = size === 2 ? 'strong' : 'em';
+      opener.opens.push(`<${tag}>`);
+      closer.closes.push(`</${tag}>`);
+      opener.remaining -= size;
+      closer.remaining -= size;
+      // Delimiters inside a completed span cannot later form crossing HTML tags.
+      openers.length = index + (opener.remaining ? 1 : 0);
+    }
+    if (canOpen && closer.remaining) openers.push(closer);
+  }
+  parts.push(text.slice(end));
+  return parts.map(part => typeof part === 'string'
+    ? part
+    : part.closes.join('') + '*'.repeat(part.remaining) + part.opens.reverse().join('')).join('');
+}
+
 function inline(text: string, rewriteHref?: RewriteHref, sourceLines?: string[]): string {
   const tokens: string[] = [];
   const token = (html: string) => `${CODE_SPAN_MARK}${tokens.push(html) - 1}${CODE_SPAN_MARK}`;
+  const restore = (value: string) => value.replace(/\u0000(\d+)\u0000/g, (_m, idx: string) => tokens[Number(idx)]);
   const cleanSource = text.replace(/\u0000/g, '');
   let result = escapeHtml(cleanSource);
   result = result.replace(/`([^`]+)`/g, (_m, code: string) => token(`<code>${code}</code>`));
@@ -270,11 +336,9 @@ function inline(text: string, rewriteHref?: RewriteHref, sourceLines?: string[])
       source,
     }) : raw;
     if (!url || !safeLink(url)) return token(label);
-    return token(`<a href="${escapeAttr(url)}">${label.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\*([^*]+)\*/g, '<em>$1</em>')}</a>`);
+    return token(`<a href="${escapeAttr(url)}">${restore(emphasis(label))}</a>`);
   });
-  result = result.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  result = result.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-  return result.replace(/\u0000(\d+)\u0000/g, (_m, idx: string) => tokens[Number(idx)]);
+  return restore(emphasis(result));
 }
 
 function escapeHtml(text: string): string {

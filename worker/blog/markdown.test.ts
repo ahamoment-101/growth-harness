@@ -56,3 +56,67 @@ it('retains the original paragraph line for identical real and code-example anch
     { anchor: 'same', source: `A later [same](${href}) remains a separate occurrence.` },
   ]);
 });
+
+it.each([
+  ['**outer *inner* outer**', '<strong>outer <em>inner</em> outer</strong>'],
+  ['*outer **inner** outer*', '<em>outer <strong>inner</strong> outer</em>'],
+  ['***both***', '<em><strong>both</strong></em>'],
+  ['**strong and *both***', '<strong>strong and <em>both</em></strong>'],
+  ['***both* and strong**', '<strong><em>both</em> and strong</strong>'],
+  ['a***b***c', 'a<em><strong>b</strong></em>c'],
+  ['a*😀*b', 'a<em>😀</em>b'],
+  ['**one** and **two**', '<strong>one</strong> and <strong>two</strong>'],
+])('renders nested emphasis without leaking delimiters: %s', (source, expected) => {
+  expect(markdownToHtml(source)).toBe(`<p>${expected}</p>`);
+});
+
+it.each([
+  ['**unclosed', '**unclosed'],
+  ['unopened**', 'unopened**'],
+  ['** spaced **', '** spaced **'],
+  ['literal * and * punctuation', 'literal * and * punctuation'],
+  ['**outer *inner*', '**outer <em>inner</em>'],
+  ['a**b*c', 'a**b*c'],
+  ['a*$*b', 'a*$*b'],
+])('keeps unmatched or non-emphasis markers literal: %s', (source, expected) => {
+  expect(markdownToHtml(source)).toBe(`<p>${expected}</p>`);
+});
+
+it('honors escaped asterisks and backslashes without parsing code-span contents', () => {
+  expect(markdownToHtml(String.raw`Literal \*stars\* and **bold \*literal\* with *inner***.`))
+    .toBe('<p>Literal *stars* and <strong>bold *literal* with <em>inner</em></strong>.</p>');
+  expect(markdownToHtml('A \\\\*word* and `**code \\*literal\\***`.'))
+    .toBe('<p>A \\<em>word</em> and <code>**code \\*literal\\***</code>.</p>');
+  expect(markdownToHtml('**before `*literal*` after**'))
+    .toBe('<p><strong>before <code>*literal*</code> after</strong></p>');
+});
+
+it('renders nested link-label emphasis while preserving rewrite context and protected code', () => {
+  const seen: MarkdownLinkContext[] = [];
+  const source = 'An introductory line.\nRead [**outer *inner* and `*code*`**](/guide?a=1&b=2).';
+  const html = markdownToHtml(source, (href, context) => { seen.push(context); return `/en${href}`; });
+  expect(html).toContain('<a href="/en/guide?a=1&amp;b=2"><strong>outer <em>inner</em> and <code>*code*</code></strong></a>');
+  expect(html).not.toContain('\u0000');
+  expect(seen).toEqual([{
+    anchor: '**outer *inner* and *code***',
+    source: 'Read [**outer *inner* and `*code*`**](/guide?a=1&b=2).',
+  }]);
+});
+
+it('keeps nested emphasis from bypassing HTML escaping or unsafe-link rejection', () => {
+  const html = markdownToHtml('**outer *<script>* outer** [**unsafe *label***](javascript:alert)');
+  expect(html).toContain('<strong>outer <em>&lt;script&gt;</em> outer</strong>');
+  expect(html).not.toContain('<script>');
+  expect(html).not.toContain('<a');
+  expect(html).not.toContain('javascript:');
+});
+
+it('handles long delimiter runs and unmatched candidates without recursive nesting', () => {
+  const markers = '*'.repeat(2000);
+  const html = markdownToHtml(`Before ${markers}nested${markers} after.`);
+  expect(html.match(/<strong>/g)).toHaveLength(1000);
+  expect(html.match(/<\/strong>/g)).toHaveLength(1000);
+  expect(html).not.toContain('*');
+  const ambiguous = 'Before ' + '*a '.repeat(2000) + 'a**b**c '.repeat(2000) + 'after.';
+  expect(markdownToHtml(ambiguous)).toContain('after.</p>');
+});

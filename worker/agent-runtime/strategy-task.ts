@@ -6,6 +6,7 @@ import { taskDecisionTurns } from './conversation-store';
 import { ToolContractError } from './tool-failure';
 import { z } from 'zod';
 import { hitlTool } from '../agent-work/hitl-tool';
+import { addHitlResolutionTools } from '../agent-work/hitl-resolution';
 import type { AgentDefinition } from './definitions';
 import type { RuntimeAgentEnv, RuntimeWorkflowStep } from './env';
 import { ToolRegistry } from './tools';
@@ -329,6 +330,8 @@ export function strategyTaskTools(input: {
   const expected = z.number().int().nonnegative();
   const common = { version: 1, timeoutMs: 15_000, retryable: false, approval: 'never' as const, preserveOutputSize: true };
   if (definition.tools.includes('request_human_input') && (task?.definition_version ?? definition.definitionVersion) >= 39) registry.register(hitlTool(env, task, operation));
+  if (definition.hitlResolutionSinceVersion && (task?.definition_version ?? definition.definitionVersion) >= definition.hitlResolutionSinceVersion
+    && definition.tools.includes('resolve_human_input_request')) addHitlResolutionTools(registry, env, task, operation);
   registry.register({ ...common, name: 'read_strategy_workspace', capability: 'read',
     description: 'Read the current strategy workspace and revision as paginated JSON, including review feedback. Continue at next_offset to inspect the entire document.',
     inputSchema: z.object({ offset: z.number().int().nonnegative().default(0), judgment_summary: judgment }), outputSchema: z.unknown(),

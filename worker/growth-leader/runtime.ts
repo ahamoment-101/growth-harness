@@ -6,6 +6,7 @@ import { LEADER_EVIDENCE_INSTRUCTIONS } from './evidence-context';
 import { appendLeaderProgressReview, LEADER_PROGRESS_INSTRUCTIONS } from './progress-review';
 import { LEADER_TODO_INSTRUCTIONS, readLeaderTodo } from './todo';
 import { ExecutionHandoff } from '../agent-runtime/runtime-executions';
+import { addHitlResolutionTools, HITL_RESOLUTION_INSTRUCTIONS } from '../agent-work/hitl-resolution';
 import { runAgentLoop, type StreamFn } from '@earendil-works/pi-agent-core';
 import { type Api, lazyStream, type Message, type Model } from '@earendil-works/pi-ai';
 import type { RuntimeAgentEnv, RuntimeWorkflowStep } from '../agent-runtime/env';
@@ -42,10 +43,12 @@ export async function runLeaderConversation(input: {
   const definition = { ...registered, tools: [...registered.tools.filter(name =>
     (task.definition_version < 9 || name !== 'find_conversations')
       && (task.definition_version >= 12 || name !== 'review_topic_group')
+      && (task.definition_version >= 22 || !['provide_task_facts', 'read_human_input_requests', 'resolve_human_input_request'].includes(name))
       && (task.definition_version >= 3 || !['read_my_inbox','complete_inbox_event','decide_publication'].includes(name))), AUDIT_TOOL, ...(supportsLearning(task) ? businessLearningToolNames(task) : []), ...(leaderOwnsLearning(task) ? LEADER_LEARNING_TOOLS : [])] };
   const scopedTools = (current: AgentTask, operation?: TaskOperation) => {
     const registry = input.tools?.(current, operation) || leaderTools(env, step, current, operation);
     if (definition.hitlSinceVersion && current.definition_version >= definition.hitlSinceVersion) registry.register(hitlTool(env, current, operation));
+    if (definition.hitlResolutionSinceVersion && current.definition_version >= definition.hitlResolutionSinceVersion) addHitlResolutionTools(registry, env, current, operation);
     addBusinessLearningTools(registry, env, current, operation);
     addLeaderLearningTools(registry, env, step, current, operation);
     return registry.register(executionAuditTool(env.DB, current, operation));
@@ -74,6 +77,7 @@ export async function runLeaderConversation(input: {
       domainInstructions += `\n${SYSTEM_LANGUAGE_INSTRUCTIONS}\n${LEADER_PUBLICATION_CONTEXT_INSTRUCTIONS}`;
     }
     if (supportsLearning(task)) domainInstructions += '\n' + (leaderOwnsLearning(task) ? LEADER_LEARNING_INSTRUCTIONS : BUSINESS_LEARNING_INSTRUCTIONS);
+    if (task.definition_version >= 22) domainInstructions += '\n' + HITL_RESOLUTION_INSTRUCTIONS + '\nWhen new evidence can inform a waiting direct child, read_task exposes its original questions and an input_ref. You may use provide_task_facts to supply the evidence and its sources to that original task. The child decides whether it is sufficient; this is not a human answer or permission. If the user must respond to an existing question, reference the original task and request instead of duplicating the form. Read subsequent task reports before claiming business work has resumed. Do not broadcast facts to unrelated tasks or create a replacement task merely to deliver information.';
     if (task.definition_version >= SEMANTIC_LEARNING_VERSION) domainInstructions += '\nDelegation learning attribution must be explicit: pass practice_ref or null, and verify learning_practice_ref in the receipt.\n' + SEMANTIC_LEARNING_INSTRUCTIONS;
     else if (task.definition_version >= 20) domainInstructions += '\nDelegation learning attribution must be explicit: pass practice_ref or null, and verify learning_practice_ref in the receipt. A narrow history search returning no matches does not prove that no relevant history exists; broaden the query or list history with an empty query before making that claim.';
     await initializeConversation(env.DB, task, domainInstructions + (task.definition_version >= 11 ? `\n${LEADER_CLARIFICATION_INSTRUCTIONS}` : '') + (task.definition_version >= 12 ? '\nAfter topic members deliver, read the topic group and the basis for each topic, and autonomously judge approval or give specific revision suggestions according to the user\'s goal. Use review_topic_group to execute the decision; when improvements are needed, it will hand the feedback to a new topic task. There is no need to ask the user to confirm topics on your behalf. Only request user input when key business facts that cannot be obtained on your own are missing.' : '') + (task.definition_version >= 13 ? '\nBefore making an article publication decision, read the site\'s publication language policy and publication_policy_ref in read_my_inbox. Judge publication or revision based on the manuscript, the review basis, and the user\'s goal; the publication tool will start localization for missing enabled languages according to the saved site policy, so do not disguise language completion as having gone live. When receiving content.article_published, verify the actual publication result against the original goal, continue follow-up in this conversation, then use complete_inbox_event to handle the notification.' : '') + (definition.hitlSinceVersion && task.definition_version >= definition.hitlSinceVersion ? `\n${HITL_AGENT_INSTRUCTIONS}` : '') + '\n' + AUDIT_INSTRUCTIONS + '\nOrdinary replies leave this conversation open. Audit finish explicitly closes it and its outstanding work; do not use it merely to end a reply.', metadata, task.definition_version >= 6 ? undefined : {}, manifest);

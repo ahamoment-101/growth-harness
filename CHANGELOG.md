@@ -11,6 +11,7 @@ Every release lists, under **Upgrade notes**, each new migration by file name, a
 
 ### Added
 
+- Leader can supply sourced facts to a waiting direct child in its original Task/Run; the child can withdraw its own obsolete question or keep waiting on the same request.
 - Site-owned business learning with Intent / Experience / Utility, Leader adoption tools, a Runtime-backed Learning Agent, outcome observation and File Cabinet views.
 - Optional Workers AI BGE-M3 / Vectorize semantic recall with durable indexing, scoped hydration and explicit applicability decisions.
 - Reproducible isolated learning checks and configuration guidance.
@@ -23,6 +24,10 @@ Every release lists, under **Upgrade notes**, each new migration by file name, a
 - CI uses `actions/checkout` 7.0.1 and `actions/setup-node` 7.1.0.
 - `@cloudflare/workers-types` is pinned to an exact version instead of `latest`.
 
+### Fixed
+
+- Render nested bold and italic star delimiters correctly in article text and link labels while preserving code spans and safe links.
+
 ### Security
 
 - Refresh transitive `body-parser` and `fast-uri` dependencies and override Miniflare's `undici` to 7.30.1 to address the pre-merge dependency audit. Cloudflare tool versions remain unchanged.
@@ -30,6 +35,7 @@ Every release lists, under **Upgrade notes**, each new migration by file name, a
 
 ### Upgrade notes
 
+- Supplementary task facts require no migration, new secret or binding. New tasks use the updated Agent tool contracts; existing tasks retain their pinned versions.
 - Apply `0085_task_subjects.sql` and `0086_learning_attribution.sql` before deploying the attribution update. These add subject snapshots and conservatively backfill evidence relationships; no learning conclusions or rewards are rewritten. Existing Learning Agent v1/v2 runs keep their contracts.
 - Apply `0082_business_learning.sql`, `0083_leader_learning.sql` and `0084_learning_search.sql` before deploying. These add learning storage, Leader attribution and a search outbox; existing conversations keep their pinned contracts.
 - Optional bindings: `AI` and `LEARNING_VECTOR_INDEX` with a dedicated 1024-dimensional cosine index. See [Business learning](docs/business-learning.md). Without these bindings, records and directory access work, while semantic recall reports unavailable.

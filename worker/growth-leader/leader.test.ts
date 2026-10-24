@@ -9,6 +9,8 @@ import { taskTestDb, resumeTestTask } from '../agent-runtime/task-test-db';
 import { agentDefinition } from '../agent-runtime/definitions';
 import { attachTask, beginTaskDecision, taskForRun, stopTask } from '../agent-runtime/task-store';
 import { hitlTool } from '../agent-work/hitl-tool';
+import { hitlWorkNode } from '../agent-work/hitl-node';
+import { createWorkRequest } from '../agent-work/requests';
 import { parseHitlSpec } from '../../shared/hitl';
 import { activateRuntimeExecution, authorityForExecution, createRuntimeExecution, currentExecution } from '../agent-runtime/runtime-executions';
 import { executionEnvironment } from '../agent-runtime/execution-context';
@@ -367,6 +369,38 @@ describe('Growth Leader native Pi conversations',()=>{
 
     f.sqlite.prepare('update agent_tasks set site_id=? where id=?').run('other-site', run.id);
     await expect(read(4).execute!({ task_ref: run.id }, context)).rejects.toThrow('Task not found');
+  });
+
+  it('offers supplementary facts only for a supported waiting child and pages its original questions', async () => {
+    const f = await fixture();
+    const definition = agentDefinition('business_research');
+    const run = { ...f.run('question-child', 'question-child'), agent_id: definition.id, parent_run_id: 'leader' };
+    f.sqlite.prepare('update agent_runs set agent_id=?,parent_run_id=? where id=?').run(definition.id, 'leader', run.id);
+    const child = await attachTask(f.db, run, definition);
+    const execution = await createRuntimeExecution(f.db, run.id);
+    await activateRuntimeExecution(f.db, authorityForExecution(execution), execution.workflow_id);
+    await stopTask(f.db, run.id, 'waiting', 'Missing facts');
+    const spec = parseHitlSpec({ schema_version: 1, title: 'Supported markets', blocks: [{ type: 'text', text: 'Which market is currently supported?' }], actions: [{ id: 'answer', label: 'Answer' }] });
+    for (let index = 0; index < 21; index++) await createWorkRequest({ db: f.db, task: child, workspaceId: 'w', siteId: 's' }, 'hitl', hitlWorkNode(`hitl:${String(index).padStart(2, '0')}`, 'now', spec));
+    const task = (await taskForRun(f.db, 'leader'))!;
+    const context = { runId: 'leader', workspaceId: 'w', siteId: 's', idempotencyKey: 'read-questions' };
+    const read = (version: number, offset = 0) => leaderTools(f.host, step, { ...task, definition_version: version })
+      .resolve(agentDefinition('growth_leader'), 'read_task').execute!({ task_ref: child.id, request_offset: offset }, context);
+    const first = await read(22) as { data: { input_ref: string; pending_requests: unknown[]; next_request_offset: number } };
+    expect(first.data.input_ref).toMatch(/^ref-/);
+    expect(first.data.pending_requests).toHaveLength(20);
+    expect(first.data.pending_requests[0]).toMatchObject({ request_id: 'hitl:00', version: '1', request: { title: 'Supported markets' } });
+    expect(first.data.next_request_offset).toBe(20);
+    expect(await read(22, 20)).toMatchObject({ data: { pending_requests: [{ request_id: 'hitl:20' }], next_request_offset: null } });
+    expect(await read(21)).not.toHaveProperty('data.input_ref');
+    expect(leaderTools(f.host, step, { ...task, definition_version: 21 }).names()).not.toContain('provide_task_facts');
+    expect(leaderTools(f.host, step, { ...task, definition_version: 22 }).names()).toContain('provide_task_facts');
+    f.sqlite.prepare('update agent_tasks set definition_version=? where id=?').run(definition.definitionVersion - 1, child.id);
+    expect(await read(22)).toMatchObject({ data: { input_ref: null } });
+    f.sqlite.prepare("update agent_tasks set agent_id='deep_research',definition_version=1 where id=?").run(child.id);
+    expect(await read(22)).toMatchObject({ data: { input_ref: null } });
+    f.sqlite.prepare('update agent_tasks set agent_id=?,definition_version=?,status=? where id=?').run(definition.id, definition.definitionVersion, 'running', child.id);
+    expect(await read(22)).toMatchObject({ data: { input_ref: null } });
   });
 
   it('denies old cross-conversation lookup while keeping its pinned tool definition', async () => {

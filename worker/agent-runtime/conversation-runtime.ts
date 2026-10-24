@@ -22,6 +22,7 @@ import { ExecutionHandoff } from './runtime-executions';
 import { TASK_MEMORY_TOOL, taskMemoryTool } from './task-memory';
 import { readModelConversation } from './conversation-read';
 import { HITL_AGENT_INSTRUCTIONS, hitlTool } from '../agent-work/hitl-tool';
+import { addHitlResolutionTools, HITL_RESOLUTION_INSTRUCTIONS } from '../agent-work/hitl-resolution';
 
 export type ConversationAgent = {
   instructions: string;
@@ -62,6 +63,9 @@ export async function runConversationTask(input: Input): Promise<ToolCompletion>
     if (definition.id !== 'strategy_research' && definition.hitlSinceVersion && current.definition_version >= definition.hitlSinceVersion) {
       registry.register(hitlTool(env, current, operation));
     }
+    if (definition.hitlResolutionSinceVersion && current.definition_version >= definition.hitlResolutionSinceVersion
+      && definition.tools.includes('read_human_input_requests') && definition.tools.includes('resolve_human_input_request')
+      && !registry.names().includes('resolve_human_input_request')) addHitlResolutionTools(registry, env, current, operation);
     return registry.register(conversationHistoryTool(env)).register(taskMemoryTool(env)).register(executionAuditTool(env.DB, current, operation, agent.auditCompletionTools));
   };
   const inspection = scopedTools();
@@ -75,7 +79,9 @@ export async function runConversationTask(input: Input): Promise<ToolCompletion>
     const initial = await agent.context(task);
     const hitlInstructions = definition.hitlSinceVersion && task.definition_version >= definition.hitlSinceVersion && definition.id !== 'strategy_research'
       ? `\n${HITL_AGENT_INSTRUCTIONS}` : '';
-    await initializeConversation(env.DB, task, agent.instructions + hitlInstructions + '\n' + agent.completionInstructions + '\n' + AUDIT_INSTRUCTIONS + '\n' + WORK_PROGRESS_INSTRUCTIONS, initial, agent.initialWorkspace?.(initial), manifest);
+    const requestInstructions = definition.hitlResolutionSinceVersion && task.definition_version >= definition.hitlResolutionSinceVersion
+      && inspection.names().includes('resolve_human_input_request') ? '\n' + HITL_RESOLUTION_INSTRUCTIONS : '';
+    await initializeConversation(env.DB, task, agent.instructions + hitlInstructions + requestInstructions + '\n' + agent.completionInstructions + '\n' + AUDIT_INSTRUCTIONS + '\n' + WORK_PROGRESS_INSTRUCTIONS, initial, agent.initialWorkspace?.(initial), manifest);
     snapshot = (await readConversation(env.DB, task, { initial: true }))!;
   }
   const pinned = await env.DB.prepare('select tool_manifest_json from agent_conversations where task_id=?').bind(task.id).first<{ tool_manifest_json: string }>();

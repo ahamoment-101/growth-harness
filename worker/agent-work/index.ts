@@ -84,8 +84,14 @@ export async function respondToWork(env: RuntimeAgentEnv, context: WorkRequestCo
       if (sorted(validated.values) !== sorted(input.values)) throw new Error('Contains input fields that are currently invisible');
       if (JSON.stringify({ type: 'hitl_response', ...validated }).length > 20_000) throw new Error('The HITL response is too long');
     }
-    const claim = await context.db.prepare(`insert or ignore into agent_work_responses(command_id,task_id,request_id,version,actor_id,input_json,node_json,created_at) values(?,?,?,?,?,?,?,?)`)
-      .bind(input.command_id, context.task.id, input.request_id, input.version, actorId, encoded, JSON.stringify(redactRuntimeValuePreservingSize(node)), new Date().toISOString()).run();
+    // An Agent may now be reconsidering a question with new parent evidence.
+    // Claim a human response only while that exact question is still awaiting it;
+    // do not consume the user's answer as a superseded response during execution.
+    const claim = await context.db.prepare(`insert or ignore into agent_work_responses(command_id,task_id,request_id,version,actor_id,input_json,node_json,created_at)
+      select ?,?,?,?,?,?,?,? ${provider.id === 'hitl' ? `where exists(select 1 from agent_work_requests r join agent_tasks t on t.id=r.task_id
+        where r.task_id=? and r.request_id=? and r.version=? and r.state='pending' and t.status='waiting' and t.pending_command_id='')` : ''}`)
+      .bind(input.command_id, context.task.id, input.request_id, input.version, actorId, encoded, JSON.stringify(redactRuntimeValuePreservingSize(node)), new Date().toISOString(),
+        ...(provider.id === 'hitl' ? [context.task.id, input.request_id, input.version] : [])).run();
     if (!claim.meta.changes) throw new Error('A response for this request is already being processed, please refresh to view');
   }
   const leaseId = crypto.randomUUID();

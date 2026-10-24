@@ -210,6 +210,18 @@ describe('matchLivePath', () => {
 });
 
 describe('live article lookup', () => {
+  it('renders nested emphasis from a stored publication with its normal link rewriting', () => {
+    const published = job({ versions_json: JSON.stringify([{
+      locale: 'en', slug: 'hello', title: 'Hello', excerpt: 'Excerpt',
+      content: '**Write *from memory*, then check.**\n\nUse [**the *writing* guide**](/write-english) with `*literal*` text.',
+    }]) });
+    const html = renderArticleHtml('https://blog.publisher.example.org', site(), findLiveArticle([published], 'en', 'hello')!);
+    expect(html).toContain('<p><strong>Write <em>from memory</em>, then check.</strong></p>');
+    expect(html).toContain('<a href="https://www.publisher.example.org/write-english"><strong>the <em>writing</em> guide</strong></a>');
+    expect(html).toContain('<code>*literal*</code>');
+    expect(html).not.toContain('**Write');
+  });
+
   it('returns HTML for a published version with SEO head and rewritten hub link', () => {
     const published = job();
     const hit = findLiveArticle([published], 'en', 'hello');

@@ -25,6 +25,7 @@ import type { AgentRun } from './protocol';
 import type { StartRuntimeRunInput } from './run-service';
 import { ToolRegistry } from './tools';
 import { hitlTool } from '../agent-work/hitl-tool';
+import { addHitlResolutionTools } from '../agent-work/hitl-resolution';
 import { createTopicDecisionToolRegistry } from './topic-decision-tools';
 import { createContentProductionToolRegistry } from './content-production-tools';
 import { createArticleProductionToolRegistry } from './article-production-tools';
@@ -274,6 +275,7 @@ for (const module of modules) {
   module.createToolRegistry = env => {
     const registry = create(env);
     if (!registry.names().includes('request_human_input')) registry.register(hitlTool(env));
+    if (module.definition.hitlResolutionSinceVersion && !registry.names().includes('resolve_human_input_request')) addHitlResolutionTools(registry, env);
     return registry;
   };
 }
