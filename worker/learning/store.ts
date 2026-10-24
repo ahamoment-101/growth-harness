@@ -175,7 +175,7 @@ export async function learningPage(
   ).results;
   const visible = rows.slice(0, 50);
   const items = await Promise.all(
-    visible.map(async ({ page_key: _key, payload_json, ...r }) => {
+    visible.map(async ({ page_key: _key, payload_json, attribution_json, ...r }) => {
       if (!payload_json) return r;
       const payload = JSON.parse(String(payload_json));
       if (r.kind === 'report' && payload.output)
@@ -183,7 +183,7 @@ export async function learningPage(
           db,
           JSON.stringify(payload.output),
         );
-      return { ...r, payload };
+      return { ...r, payload, ...(attribution_json ? { attribution: JSON.parse(String(attribution_json)) } : {}) };
     }),
   );
   return {

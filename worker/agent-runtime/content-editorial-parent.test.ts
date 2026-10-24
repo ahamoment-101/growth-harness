@@ -88,7 +88,7 @@ it('binds the explicitly selected plan before dispatch and rejects missing or fo
   expect(startChildRun).not.toHaveBeenCalled();
   await tool.execute!(args,p.context);
   expect(startChildRun).toHaveBeenCalledTimes(1);
-  expect(started[0]).toMatchObject({initialAssignment:{material:{editorial_contract_version:2,coverage_plan:plan}}});
+  expect(started[0]).toMatchObject({initialAssignment:{subjects:[{type:'job',id:'j',version:null}],material:{editorial_contract_version:2,coverage_plan:plan}}});
   const bound=f.sqlite.prepare('select resolved_json from agent_operation_bindings where operation_id=?').get(op.id) as {resolved_json:string};
   expect(await readRuntimeJson(f.db,bound.resolved_json)).toMatchObject([{material:{coverage_plan:plan}}]);
 });

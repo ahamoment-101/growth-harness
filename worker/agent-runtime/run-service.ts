@@ -1,3 +1,4 @@
+import { taskSubjectsJson, type TaskSubject } from './task-subjects';
 import { createRuntimeExecution, dispatchExecution, currentExecution } from './runtime-executions';
 import { persistRuntimeJson } from './runtime-content';
 import { attachTask, stopTask, taskForRun, requireParentAuthority } from './task-store';
@@ -23,7 +24,7 @@ export type StartRuntimeRunInput = {
   parentRunId?: string;
   scheduleKey?: string;
   summary?: unknown;
-  initialAssignment?: { id: string; material: unknown };
+  initialAssignment?: { id: string; material: unknown; subjects?: TaskSubject[] };
 };
 
 export function assertRuntimeRunRequest(input: StartRuntimeRunInput): void {
@@ -162,6 +163,13 @@ export async function startRuntimeRun(env: RuntimeAgentEnv, input: StartRuntimeR
     requestedExisting.retry_of_run_id !== (lineage.retryOfRunId || '') ||
     (['sub_agent', 'retry'].includes(input.trigger) && requestedExisting.root_run_id !== lineage.rootRunId)
   )) throw new Error('Existing Runtime Run lineage does not match the request');
+  if (requestedExisting && input.initialAssignment) {
+    const receipt = await env.DB.prepare('select task_id,subjects_json from agent_task_assignments where id=?')
+      .bind(input.initialAssignment.id).first<{ task_id: string; subjects_json: string | null }>();
+    const assigned = !receipt && await env.DB.prepare("select 1 from agent_tasks where id=? and assignment_id!=''").bind(requestedExisting.id).first();
+    if ((!receipt && (assigned || requestedExisting.status !== 'queued')) || (receipt && (receipt.task_id !== requestedExisting.id || receipt.subjects_json !== taskSubjectsJson(input.initialAssignment.subjects))))
+      throw new Error('Assignment subject identity conflict');
+  }
   if (requestedExisting && requestedExisting.status !== 'queued') return requestedExisting;
   const existing = await getActiveAgentRun(env.DB, input.workspaceId, input.siteId, input.agentId, input.instanceId || '');
   if (existing && existing.id !== runId) {
@@ -192,8 +200,8 @@ export async function startRuntimeRun(env: RuntimeAgentEnv, input: StartRuntimeR
       if (input.initialAssignment) {
         const task = (await taskForRun(env.DB, runId))!;
         await env.DB.batch([
-          env.DB.prepare('insert or ignore into agent_task_assignments(id,task_id,operation_id,context_json,created_at) values(?,?,?,?,?)')
-            .bind(input.initialAssignment.id, task.id, input.initialAssignment.id, await persistRuntimeJson(env.DB, input.initialAssignment.material), new Date().toISOString()),
+          env.DB.prepare('insert or ignore into agent_task_assignments(id,task_id,operation_id,context_json,created_at,subjects_json) values(?,?,?,?,?,?)')
+            .bind(input.initialAssignment.id, task.id, input.initialAssignment.id, await persistRuntimeJson(env.DB, input.initialAssignment.material), new Date().toISOString(), taskSubjectsJson(input.initialAssignment.subjects)),
           env.DB.prepare("update agent_tasks set assignment_id=? where id=? and assignment_id=''").bind(input.initialAssignment.id, task.id),
         ]);
       }

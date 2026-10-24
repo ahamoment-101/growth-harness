@@ -37,7 +37,7 @@ it('maps parent read/edit tools and dispatches the exact edited candidate and ta
   const review = agent.tools(task, operation).resolve(agentDefinition('content_production'), 'start_content_reviews');
   await review.execute!(args, { ...f.context, idempotencyKey: operation.id });
   expect(startChildRun).toHaveBeenCalledOnce();
-  expect(startChildRun.mock.calls[0][0]).toMatchObject({ initialAssignment: { material: { artifact_id: saved.artifact_id,
+  expect(startChildRun.mock.calls[0][0]).toMatchObject({ initialAssignment: { subjects: [{ type: 'job', id: 'j', version: saved.artifact_id }], material: { artifact_id: saved.artifact_id,
     author_child_run_id: 'author', internal_linking_contract: 1,
     versions: [{locale: 'en', content: expect.stringContaining('[checklist](article:old)')}],
     seo_contract: { internal_link_edit: { targets: [{job_id: 'old'}] } },

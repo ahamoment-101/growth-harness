@@ -115,7 +115,7 @@ const DEFINITIONS: Record<AgentId, AgentDefinition> = {
     id: 'learning_agent', label: 'Business Learning', taskBased: true,
     presence: { kind: 'internal', reason: 'Maintains site-shared business experience and outcome feedback' },
     promptLabel: 'Business Learning Agent', mission: 'Learn business judgments from attributable practice and outcome evidence.',
-    definitionVersion: 2, promptVersion: 'business-learning-v2-semantic-history', contextSources: [], contextBudgetBytes: 130_000,
+    definitionVersion: 3, promptVersion: 'business-learning-v3-attributed-evidence', contextSources: [], contextBudgetBytes: 130_000,
     tools: ['read_learning_request','search_learning_history','list_learning_history','read_learning_experience','read_learning_history_page','calculate_learning_reward','submit_learning_result'],
     injectedTool: null, workflowBinding: 'AGENT_WORKFLOW', inputSchema: runtimeRunInputSchema, outputSchema: z.unknown(),
     conversationTools: [], runPolicy: { allowScheduled: true, allowApprovals: false, allowSubAgents: false }, memoryPolicy: 'none',

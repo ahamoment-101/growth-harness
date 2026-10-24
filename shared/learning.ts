@@ -24,6 +24,13 @@ export type EvaluationAgreement = {
 export type LearningData = {
   intent: { goal: string; context: string; expectation: string };
   experience: {
+    findings?: Array<{
+      scope: 'object' | 'practice' | 'unknown';
+      subjects: Array<{ type: string; id: string; version: string | null }>;
+      kind: 'adjustment' | 'delivery' | 'conclusion' | 'limitation';
+      text: string;
+      evidence_refs: string[];
+    }>;
     insight?: string;
     hypothesis: string;
     approach: string;
@@ -77,6 +84,10 @@ export type LearningEvidence = {
   record_id: string;
   kind: string;
   source_ref: string;
+  attribution?: {
+    task_id?: string; parent_task_id?: string; assignment_id?: string; parent_assignment_id?: string;
+    subjects: Array<{ type: string; id: string; version: string | null }>;
+  };
   payload: unknown;
   created_at: string;
 };

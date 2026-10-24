@@ -114,3 +114,7 @@ This creates an isolated test index, seeds explicitly synthetic records, checks 
 For a manual browser sandbox with synthetic GSC responses, run `VERIFY_REAL_RUNTIME=1 node scripts/verify-learning-local.mjs` after building. Open the printed loopback-only fixture login URL. It uses real selected models, isolated local persistence, and synthetic business documents. Start a Leader practice from the UI. Its fixture endpoints are never included in the deployed Worker. Stop it with Ctrl+C. This sandbox does not provide semantic bindings; use the semantic check above for vector acceptance.
 
 See [acceptance scope](business-learning-acceptance.md) for the tested revision and evidence boundaries. Functional correctness, semantic relevance, changed decisions and measured business improvement are distinct claims. Real growth requires actual publication, matured outcome data and a defensible comparison; a synthetic fixture or increasing Utility is insufficient.
+
+## Object attribution
+
+Runtime carries saved object references through nested tasks and assignment revisions. Learning Agent v3 cites per-object evidence and reconciles prior interpretations. See [Learning attribution integrity](learning-attribution.md) for contracts, upgrade migrations, historical-data limits and acceptance scope.
