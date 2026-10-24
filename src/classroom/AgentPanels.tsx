@@ -1,3 +1,4 @@
+import { TaskLearningLinks } from './BusinessExperience';
 import { useRoomTopic } from '../site-room';
 import { WorkTimeline } from './WorkTimeline';
 import type { WorkNode, WorkResponse } from '../../shared/agent-work';
@@ -235,6 +236,7 @@ export function AgentPanels({ siteId, agent, crowd, names, onClose, onSeen, init
         {detailError && <p role="alert" className="ap-error ap-notice">{detailError}{detail ? '(showing the previous content first)' : ''}</p>}
         {!hasRuntime ? <div className="ap-empty"><h2>Team Lead</h2><p>Once the execution service is connected, real work activity and artifacts will appear here.</p></div> : !detail ? <div className="ap-empty"><h2>{taskId ? 'Loading work progress…' : tab === 'work' ? 'No tasks in progress right now' : 'Select a historical task'}</h2><p>{tab === 'work' ? 'After a task starts, the work process and results will be continuously updated here.' : 'View its work process and results.'}</p></div> : <>
           {view === 'work' && <div className="ap-work-title"><span className={`ap-state ${selected!.status}`}>{selected!.attention_count ? 'Needs your response' : states[detail.execution.execution_state] || detail.execution.execution_state}</span><h2>{panelWorkTitle(detail)}</h2><small>Updates in real time as work progresses</small></div>}
+          <TaskLearningLinks siteId={siteId} taskId={taskId!} version={selected!.updated_at} />
           <div className="ap-feed" ref={workFeed} hidden={view !== 'work'} onScroll={(event) => { const el = event.currentTarget; followWork.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80; if (followWork.current) setHasNewWork(false); }}>
             <ol className="ap-work-stream" aria-label="Saved work activity">
               <li className="ap-stream-start"><i /><div><strong>Start work</strong>{workContext.map(item => <p key={item.label}>{item.label}: {item.text}</p>)}<time>{formatDateTime(selected!.created_at)}</time></div></li>

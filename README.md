@@ -10,6 +10,7 @@ Give the Growth Leader a goal, follow the team's work in the classroom, and revi
 
 - **Build shared business context.** Keep product facts and research available to the team.
 - **Move from research to drafts.** Work through keyword research, topic selection, writing, and independent review.
+- **Carry business lessons forward.** The Leader can recall site experience, record what it adopts, and update understanding from measured outcomes. Inspect Intent, Experience and Utility in the File Cabinet.
 - **Follow ongoing work.** Open a team member's task to inspect progress, deliverables, and blockers.
 - **Keep publishing under your control.** Review articles and approve publication from the same workspace.
 
@@ -51,6 +52,12 @@ Keep the development server running while Agents execute. Stopping it stops loca
 
 Cloudflare hosting uses separate resources and Secrets, configured through [self-hosting](docs/self-hosting.md#cloudflare). Local databases and stored articles are not automatically copied to production when you deploy. Verify the deployed installation separately; a local test does not establish production readiness.
 
+## Business experience and learning
+
+The Leader coordinates learning across tasks while specialists keep their normal business roles. An internal Learning Agent records hypotheses before action, preserves delivery and result evidence, and updates lessons for later decisions. D1 stores authoritative records; optional Workers AI and Vectorize bindings provide semantic recall.
+
+See [Business learning](docs/business-learning.md) for the three core objects, configuration, upgrade steps and reproducible checks. Semantic similarity finds candidates; the Leader decides relevance and explicitly records adoption. Utility estimates later-use value and remains unknown without eligible outcome feedback. This is a working learning mechanism, not a demonstrated guarantee of traffic or revenue improvement.
+
 ## Optional DataForSEO keyword data
 
 [DataForSEO](https://dataforseo.com/) is a paid API service that supplies SEO data. The Keyword Research Agent can use it to look up country-specific search volume, keyword difficulty, search intent, CPC and monthly search trends, or retrieve organic Google results and results-page features (SERP). These observations help the Agent compare demand and inspect competing pages; they do not guarantee rankings or traffic.
@@ -90,7 +97,7 @@ Each installation has one owner workspace. Email and password login is the defau
 
 The console and operational reports use English. Research and published articles use their independently configured target languages.
 
-The shared Runtime preserves task identity and conversation history, handles execution recovery and tool permissions, and supports autonomous audits. Domain Agents choose business actions through their prompts and tools. Continuous execution and within-task feedback have been verified; cross-task learning and automatic Harness improvement remain roadmap work. SEO growth outcomes require separate measurement.
+The shared Runtime preserves task identity and conversation history, handles execution recovery and tool permissions, and supports autonomous audits. Domain Agents choose business actions through their prompts and tools. Cross-task business learning is implemented through the Leader and an internal Learning Agent; it does not train model weights or rewrite the Harness. Verification scope is documented separately, and SEO growth outcomes require real-world measurement.
 
 The React/Vite console and hosted articles run on Cloudflare Workers, with D1, R2, Durable Objects, and Workflows for storage and execution.
 

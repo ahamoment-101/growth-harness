@@ -22,3 +22,6 @@
 - [Repository maintenance](repository-maintenance.md): downstream synchronization, public exports and history review.
 
 Architecture and design documents describe contracts or intended behavior. They are not proof that a particular account, provider or deployment has passed acceptance. Internal deployment receipts, customer handover material and raw conversations are excluded from this documentation set.
+
+- [Business learning](business-learning.md): Intent / Experience / Utility, Leader integration, semantic retrieval, setup and limitations.
+- [Business learning acceptance](business-learning-acceptance.md): reproducible checks and evidence boundaries.

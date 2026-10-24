@@ -211,6 +211,7 @@ export type SearchAnalyticsRow = {
 };
 
 export type SearchAnalyticsResponse = {
+  metadata?: { first_incomplete_date?: string };
   rows: SearchAnalyticsRow[];
 };
 
@@ -226,6 +227,8 @@ export async function gscSearchAnalytics(opts: {
   dimensions: string[];
   rowLimit?: number;
   startRow?: number;
+  pageUrl?: string;
+  dataState?: 'all' | 'final';
 }): Promise<SearchAnalyticsResponse> {
   const url = `${GSC_BASE}/sites/${encodeURIComponent(opts.siteUrl)}/searchAnalytics/query`;
   const res = await fetch(url, {
@@ -240,6 +243,8 @@ export async function gscSearchAnalytics(opts: {
       dimensions: opts.dimensions,
       rowLimit: opts.rowLimit ?? 1000,
       startRow: opts.startRow ?? 0,
+      ...(opts.pageUrl ? { dimensionFilterGroups: [{ groupType: 'and', filters: [{ dimension: 'page', operator: 'equals', expression: opts.pageUrl }] }] } : {}),
+      ...(opts.dataState ? { dataState: opts.dataState } : {}),
     }),
   });
   if (!res.ok) {
@@ -247,17 +252,19 @@ export async function gscSearchAnalytics(opts: {
     throw new Error(`GSC analytics query failed: ${res.status} ${text.slice(0, 400)}`);
   }
   const data = await res.json() as SearchAnalyticsResponse;
-  return { rows: data.rows ?? [] };
+  return { rows: data.rows ?? [], ...(data.metadata ? { metadata: data.metadata } : {}) };
 }
 
 /** Fetch every row the Search Analytics API exposes for this dimension. */
 export async function gscSearchAnalyticsAll(opts: Omit<Parameters<typeof gscSearchAnalytics>[0], 'rowLimit' | 'startRow'>): Promise<SearchAnalyticsResponse> {
   const rowLimit = 25_000;
   const rows: SearchAnalyticsRow[] = [];
+  let metadata: SearchAnalyticsResponse['metadata'];
   for (;;) {
     const page = await gscSearchAnalytics({ ...opts, rowLimit, startRow: rows.length });
     rows.push(...page.rows);
-    if (page.rows.length < rowLimit) return { rows };
+    metadata = page.metadata || metadata;
+    if (page.rows.length < rowLimit) return { rows, ...(metadata ? { metadata } : {}) };
   }
 }
 

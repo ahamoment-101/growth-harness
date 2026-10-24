@@ -1,3 +1,4 @@
+import { runBusinessConversationTask } from '../learning/business';
 import { z } from 'zod';
 import { mountLibraryTools } from '../keyword-library/agent-tools';
 import { KEYWORD_SEARCH_INSTRUCTIONS, keywordSearchAvailability, registerKeywordSearchTools } from '../keyword-library/search-tools';
@@ -6,7 +7,6 @@ import { activeStrategyVersion } from '../lib/research/strategy-store';
 import { businessModuleMarkdown } from '../../shared/business';
 import { SYSTEM_LANGUAGE } from '../../shared/system-language';
 import type { AgentModuleExecutionContext } from './agent-modules';
-import { runConversationTask } from './conversation-runtime';
 import type { AgentDefinition } from './definitions';
 import type { RuntimeAgentEnv } from './env';
 import { readRuntimeJson } from './runtime-content';
@@ -195,7 +195,7 @@ export function keywordResearchTools(input: {
 
 export async function runKeywordResearchConversation(input: AgentModuleExecutionContext) {
   const { env, definition, run } = input;
-  const result = await runConversationTask({ env, step: input.step, runId: run.id, definition, agent: {
+  const result = await runBusinessConversationTask({ env, step: input.step, runId: run.id, definition, agent: {
     auditCompletionTools: ['finish_keyword_research'],
     instructions: `${definition.mission}\n${KEYWORD_RESEARCH_SYSTEM}${run.definition_version >= 8 ? KEYWORD_SEARCH_INSTRUCTIONS : ''}`,
     context: async task => {

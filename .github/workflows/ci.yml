@@ -21,12 +21,13 @@ jobs:
       - run: npm ci --registry=https://registry.npmjs.org
       - run: npm test
       - run: npm run test:sync
-      - run: node --test scripts/d1-target.test.mjs scripts/sanitize-build.test.mjs scripts/check-public-boundary.test.mjs scripts/check-changelog.test.mjs
+      - run: node --test scripts/d1-target.test.mjs scripts/sanitize-build.test.mjs scripts/check-public-boundary.test.mjs scripts/check-changelog.test.mjs scripts/learning-acceptance-config.test.mjs
       - run: npm run changelog:check
       - run: node scripts/check-public-boundary.mjs
       - run: npm run build
       - run: node scripts/check-public-boundary.mjs --artifacts dist
       - run: node scripts/verify-installation-local.mjs
+      - run: node scripts/verify-learning-offline.mjs
       - run: npm run verify:self-hosting:local
       - run: npm run verify:model-configuration:local
       - run: npm audit --registry=https://registry.npmjs.org --audit-level=moderate

@@ -25,6 +25,8 @@ import { HITL_AGENT_INSTRUCTIONS, hitlTool } from '../agent-work/hitl-tool';
 
 export type ConversationAgent = {
   instructions: string;
+  /** Optional request availability policy; a persisted domain result may end this task. */
+  onModelFailure?: (task: AgentTask, receipt: string, error: unknown) => Promise<boolean>;
   auditCompletionTools?: readonly string[];
   context: (task: AgentTask) => Promise<unknown>;
   tools: (task?: AgentTask, operation?: TaskOperation) => ToolRegistry;
@@ -215,6 +217,7 @@ export async function runConversationTask(input: Input): Promise<ToolCompletion>
       if (latest.status !== 'running') return terminal(latest);
       const last = observedResponse;
       if (last?.role === 'assistant' && ['error','aborted'].includes(last.stopReason) && !contextOverflowResponse(last)) {
+        if (await agent.onModelFailure?.(latest, responseKey, last.errorMessage || last.stopReason)) return terminal((await taskForRun(env.DB, runId))!);
         if (transientFailures < IN_PLACE_RETRY_DELAYS.length) {
           await step.sleep(`model-retry-${responseKey}`, IN_PLACE_RETRY_DELAYS[transientFailures++]);
           continue;

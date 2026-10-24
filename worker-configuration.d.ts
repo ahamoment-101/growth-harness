@@ -4,6 +4,8 @@ declare global {
 interface Env {
   ASSETS: Fetcher;
   DB: D1Database;
+  AI?: Ai;
+  LEARNING_VECTOR_INDEX?: Vectorize;
   PUBLISH_WORKFLOW: Workflow;
   LOCALIZE_WORKFLOW: Workflow;
   AGENT_SHELL: DurableObjectNamespace<AgentShell>;

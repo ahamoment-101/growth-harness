@@ -1,3 +1,7 @@
+import { collectDueLearningOutcomes } from './learning/observations';
+import { getRecord, learningPage, listRecords, recordDetail, taskLearning } from './learning/store';
+import { dispatchLearningRequests } from './learning/dispatch';
+import { processLearningSearch } from './learning/search';
 import { handleApplicationAuth } from './lib/auth/http';
 import { handleLeaderRequest } from './growth-leader/routes';
 import { isLeaderConversationResponseRoute } from './growth-leader/response-route';
@@ -182,13 +186,17 @@ export default {
       // Independent recoveries: one failing must not starve the others or the live-view backstop.
       const jobs: Array<[string, () => Promise<unknown>]> = [
         ['task executions', () => reconcileTaskExecutions(env, at)],
+        ['business learning', () => dispatchLearningRequests(env)],
+        ['learning outcomes', () => collectDueLearningOutcomes(env, at)],
         ['publication dispatches', () => reconcilePublicationDispatches(env, at)],
         ['leader deliveries', () => recoverLeaderDeliveries(env)],
         ['daily triggers', () => dispatchDailyTriggers(env, at)],
         ['firecrawl cancellations', () => reconcileFirecrawlCancellations(env)],
         ['topic research requests', () => dispatchTopicResearchRequests(env)],
-        // Last: rooms of every site changed by anything above or since the previous minute.
+        // Rooms of every site changed by anything above or since the previous minute.
         ['site room backstop', () => pokeChangedSites(env)],
+        // Derivative search work follows business recovery; remote indexing must not delay it.
+        ['learning semantic index', () => processLearningSearch(env, at)],
       ];
       for (const [name, job] of jobs) {
         try { await job(); } catch (error) { console.error(`Minute job failed: ${name}`, String(error)); }
@@ -376,6 +384,24 @@ async function handle(request: Request, env: Env, ctx: ExecutionContext): Promis
     const siteId = decodeURIComponent(contentProductionMatch[1]);
     if (!await ownedSite(siteId)) return json({ error: 'site not found' }, 404);
     return json(await contentProductionPayload(env.DB, workspaceId, siteId));
+  }
+
+  const learningMatch = path.match(/^\/api\/sites\/([^/]+)\/learning(?:\/(records|tasks)(?:\/([^/]+))?)?$/);
+  if (learningMatch) {
+    if (!principal) return json({ error: 'authentication required' }, 401);
+    if (method !== 'GET') return json({ error: 'method not supported' }, 405);
+    const siteId = decodeURIComponent(learningMatch[1]);
+    if (!await ownedSite(siteId)) return json({ error: 'not found' }, 404);
+    const scope = { workspaceId, siteId };
+    const ref = learningMatch[3] ? decodeURIComponent(learningMatch[3]) : '';
+    if (learningMatch[2] === 'tasks' && ref) return json(await taskLearning(env.DB, scope, ref));
+    if (ref) {
+      if (!await getRecord(env.DB,scope,ref)) return json({error:'Learning record not found'},404);
+      const section=url.searchParams.get('section');
+      if (section && ['evidence','uses','adopted_by','tasks','observations'].includes(section)) return json(await learningPage(env.DB,scope,ref,section as import('../shared/learning').LearningSection,url.searchParams.get('after') || ''));
+      return json(await recordDetail(env.DB,scope,ref));
+    }
+    return json(await listRecords(env.DB, scope, url.searchParams.get('q') || '', url.searchParams.get('status') || '', url.searchParams.get('before') || ''));
   }
 
   const agentEventsMatch = path.match(/^\/api\/sites\/([^/]+)\/agents\/([^/]+)\/runs\/([^/]+)\/events$/);

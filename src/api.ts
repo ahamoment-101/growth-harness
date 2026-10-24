@@ -1,3 +1,4 @@
+import type { LearningRecord, LearningDetail, LearningSection, LearningPage } from '../shared/learning';
 import type { LeaderConversation, LeaderDetail, LeaderConfiguration } from '../shared/growth-leader';
 import type { SiteLedgerResponse } from '../shared/site-ledger';
 import type { AgentActivityPage } from '../shared/agent-activity';
@@ -471,6 +472,11 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  learningRecords: (siteId: string, query = '', status = '', before = '') => req<{ records: LearningRecord[]; next_cursor: string | null }>(`/api/sites/${encodeURIComponent(siteId)}/learning/records?${new URLSearchParams({q:query,status,before})}`),
+  learningPage: (siteId:string,id:string,section:LearningSection,after:string) => req<LearningPage>(`/api/sites/${encodeURIComponent(siteId)}/learning/records/${encodeURIComponent(id)}?${new URLSearchParams({section,after})}`),
+  learningDetail: (siteId: string, id: string) => req<LearningDetail>(`/api/sites/${encodeURIComponent(siteId)}/learning/records/${encodeURIComponent(id)}`),
+  taskLearning: (siteId: string, taskId: string) => req<{ formed: LearningRecord | null; used: Array<LearningRecord & { reason: string }> }>(`/api/sites/${encodeURIComponent(siteId)}/learning/tasks/${encodeURIComponent(taskId)}`),
+
   leaderConfiguration: (siteId: string) => req<LeaderConfiguration>(`/api/sites/${siteId}/leader/configuration`),
   startLeaderConversation: (siteId: string, input: { id: string; title: string; message: { id: string; text: string } }) => req<{ accepted: boolean; id: string }>(`/api/sites/${siteId}/leader/start`, { method: 'POST', body: JSON.stringify(input) }),
   createLeaderConversation: (siteId: string, input: { id: string; title: string }) => req<LeaderConversation>(`/api/sites/${siteId}/leader/conversations`, { method: 'POST', body: JSON.stringify(input) }),

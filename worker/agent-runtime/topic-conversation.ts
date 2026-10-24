@@ -1,3 +1,4 @@
+import { runBusinessConversationTask } from '../learning/business';
 import { SYSTEM_LANGUAGE } from '../../shared/system-language';
 import { ToolContractError } from './tool-failure';
 import { topicScope } from './topic-scope';
@@ -8,7 +9,6 @@ import { TOPIC_LIBRARY_INSTRUCTIONS } from './library-business-instructions';
 import { readRuntimeJson } from './runtime-content';
 import { z } from 'zod';
 import type { AgentModuleExecutionContext } from './agent-modules';
-import { runConversationTask } from './conversation-runtime';
 import { loadTopicDecisionContext } from './topic-decision-context';
 import { createTopicDecisionToolRegistry, normalizeTopicWebEvidence, topicSearchWebInputSchema, type TopicWebEvidence } from './topic-decision-tools';
 import { topicDecisionItemSchema, topicDecisionOutputSchema, aggregateLanguageTopicDecisions, type TopicDecisionItemOutput, type TopicDecisionOutput } from './topic-decision-contract';
@@ -171,7 +171,7 @@ export async function runTopicConversation(input: AgentModuleExecutionContext) {
       payload: strategy ? { strategy_task_id: strategy.id, strategy_status: strategy.status } : { research_request_id: request!.id } });
     await input.step.sleep(`strategy-gate-${poll}`, '3 minutes');
   }
-  const result = await runConversationTask({ env, step: input.step, runId: run.id, definition, agent: {
+  const result = await runBusinessConversationTask({ env, step: input.step, runId: run.id, definition, agent: {
     auditCompletionTools: [...SUBMIT_TOOLS],
     instructions: `${definition.mission}\n${TOPIC_LIBRARY_INSTRUCTIONS}`,
     context: async task => state(task), completionInstructions: 'Complete the decision based on persistence receipts. Submit the decision once and explicitly finish. Do not claim unsaved results.',
