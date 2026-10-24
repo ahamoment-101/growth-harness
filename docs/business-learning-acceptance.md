@@ -27,6 +27,8 @@ Post-implementation review follows the user path from preparation through retrie
 
 The offline verifier passed in the working checkout. Its second invocation in the isolated export encountered an occupied preview port and was not rerun after the maintainer waived additional public acceptance.
 
+Pre-merge CI exposed an outdated synthetic delegation in the self-hosting verifier: the current Leader contract requires an explicit `practice_ref`, while the fixture omitted it. The coordination-only fixture now passes `null` and checks the returned `learning_practice_ref` is also null. The focused self-hosting check passed with real local Workflow/D1, child report delivery and acknowledgment in the original conversation. This changes only the verifier, not production prompts, tools or Runtime behavior, and makes no real-model or growth claim.
+
 The screenshot is a synthetic fixture. It has no real customer, publication or outcome data. Browser navigation was verified in Ego Lite; its screenshot endpoint timed out, so the in-app browser was used for the captured image and narrow viewport inspection.
 
 ## Real external retrieval

@@ -26,6 +26,7 @@ const bundled = await build({ stdin: { resolveDir: process.cwd(), sourcefile: 'r
     let calls=[];
     const invoke=(name,args)=>{calls=[{id:name+'-'+crypto.randomUUID(),name,arguments:args}];};
     for (const receipt of results) if(receipt.isError) throw new Error('Synthetic verifier received a tool failure: '+JSON.stringify(receipt.content));
+    if(result('delegate_task') && decoded('delegate_task').learning_practice_ref !== null) throw new Error('Coordination-only fixture unexpectedly linked a learning practice');
     if(hasReport) {
       if(!result('read_my_inbox')) invoke('read_my_inbox',{});
       else {
@@ -38,7 +39,8 @@ const bundled = await build({ stdin: { resolveDir: process.cwd(), sourcefile: 'r
       }
     } else if(!result('read_workspace')) invoke('read_workspace',{section:'overview'});
     else if(!result('discover_agents')) invoke('discover_agents',{});
-    else if(!result('delegate_task')) invoke('delegate_task',{agent_ref:'deep_research',scope_ref:decoded('discover_agents').scopes[0].scope_ref,goal:'Research enterprise customer needs',reason:'Support product positioning',context:''});
+    // This fixture verifies child coordination, without preparing or evaluating a learning practice.
+    else if(!result('delegate_task')) invoke('delegate_task',{agent_ref:'deep_research',scope_ref:decoded('discover_agents').scopes[0].scope_ref,goal:'Research enterprise customer needs',reason:'Support product positioning',context:'',practice_ref:null});
     const reply={role:'assistant',content:calls.length?calls.map(c=>({type:'toolCall',...c})):[{type:'text',text}],api:model.api,provider:model.provider,model:model.id,stopReason:calls.length?'toolUse':'stop',timestamp:Date.now(),usage:{input:10,output:10,cacheRead:0,cacheWrite:0,totalTokens:20,cost:{input:0,output:0,cacheRead:0,cacheWrite:0,total:0}}};
     return replayConversationResponse(reply,stream)(m,c,o);
   };
