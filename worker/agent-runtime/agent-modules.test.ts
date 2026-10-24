@@ -27,7 +27,7 @@ describe('Runtime Agent module architecture', () => {
       expect(source).not.toContain('createOpenRouter');
       expect(source).not.toContain('createOpenAICompatible');
       expect(source).not.toContain('plannerTools');
-      expect(source).toContain('runConversationTask');
+      expect(source).toMatch(/run(?:Business)?ConversationTask/);
       if (file === 'strategy-conversation.ts') expect(source).not.toContain('runTaskLoop');
     }
   });

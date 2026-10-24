@@ -1,5 +1,6 @@
 import type { D1Database, R2Bucket } from '@cloudflare/workers-types';
 import type { AgentWorkflowStep } from 'agents/workflows';
+import type { LearningSearchBindings } from '../learning/search';
 
 export type RuntimeWorkflowStep = AgentWorkflowStep;
 
@@ -15,7 +16,7 @@ export type RuntimeWorkflowBinding = {
   get(id: string): Promise<RuntimeWorkflowInstance>;
 };
 
-export interface RuntimeAgentEnv {
+export interface RuntimeAgentEnv extends LearningSearchBindings {
   execution?: import('./execution-context').RuntimeExecutionContext;
   DB: D1Database;
   recordFirecrawlIdentity?: (taskId: string, jobId: string) => Promise<void>;

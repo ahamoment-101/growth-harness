@@ -1,3 +1,4 @@
+import { BusinessExperience } from './BusinessExperience';
 import { useEffect, useState } from 'react';
 import { api, type Site } from '../api';
 import { BUSINESS_MODULES, type BusinessModuleKey } from '../../shared/business';
@@ -6,7 +7,7 @@ import { CabinetDocumentDetail, CabinetFileList } from './CabinetDocument';
 import { strategyDocumentBody, type CabinetDocument as DocumentItem } from '../../shared/cabinet-document';
 import './panels.css';
 
-const categories = ['Business Profile', 'Strategy documents', 'Research materials'] as const;
+const categories = ['Business Profile', 'Strategy documents', 'Research materials', 'Business Experience'] as const;
 
 /** The three shelves share one document list and detail view. */
 export function CabinetPanel({ site, initialCategory = 'Business Profile', initialModule }: { site: Site; initialCategory?: string; initialModule?: BusinessModuleKey }) {
@@ -14,7 +15,7 @@ export function CabinetPanel({ site, initialCategory = 'Business Profile', initi
   const [errors, setErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [reload, setReload] = useState(0);
-  const [category, setCategory] = useState(initialCategory);
+  const [category, setCategory] = useState(new URLSearchParams(location.search).get('category') === 'experience' ? 'Business Experience' : initialCategory);
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(initialModule ? `business:${initialModule}` : null);
   const [editing, setEditing] = useState<BusinessModuleKey | null>(null);
@@ -63,8 +64,8 @@ export function CabinetPanel({ site, initialCategory = 'Business Profile', initi
         {selectedModule ? <button type="button" className="room-back" onClick={() => setEditing(selectedModule)}>Edit business profile</button> : null}
       </CabinetDocumentDetail>
     </> : <>
-      <div className="room-activity-tools"><div className="room-filter-row" aria-label="Material categories">{categories.map((value) => <button type="button" aria-pressed={category === value} key={value} onClick={() => { setCategory(value); setSelectedId(null); }}>{value}</button>)}</div><input type="search" aria-label="Search materials" placeholder="Search by name or language…" value={query} onChange={(event) => setQuery(event.target.value)} /></div>
-      {loading ? <p className="room-empty" role="status">Opening the file cabinet…</p> : <>
+      <div className="room-activity-tools"><div className="room-filter-row" aria-label="Material categories">{categories.map((value) => <button type="button" aria-pressed={category === value} key={value} onClick={() => { setCategory(value); setSelectedId(null); const url = new URL(location.href); url.searchParams.delete('experience'); if (value === 'Business Experience') url.searchParams.set('category', 'experience'); else url.searchParams.delete('category'); history.replaceState(null, '', url); }}>{value}</button>)}</div>{category !== 'Business Experience' && <input type="search" aria-label="Search materials" placeholder="Search by name or language…" value={query} onChange={(event) => setQuery(event.target.value)} />}</div>
+      {category === 'Business Experience' ? <BusinessExperience siteId={site.id} /> : loading ? <p className="room-empty" role="status">Opening the file cabinet…</p> : <>
         {errors.length ? <div className="room-read-error" role="alert">{errors.map((error) => <p key={error}>{error}</p>)}<button type="button" onClick={() => setReload((value) => value + 1)}>Re-read</button></div> : null}
         <CabinetFileList documents={filtered} onOpen={setSelectedId} />
         {!filtered.length ? <p className="room-empty">{query ? 'No matching materials. Try other criteria.' : errors.length ? 'Some materials could not be read. Please retry.' : 'This category has no materials yet.'}</p> : null}

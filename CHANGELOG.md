@@ -11,6 +11,9 @@ Every release lists, under **Upgrade notes**, each new migration by file name, a
 
 ### Added
 
+- Site-owned business learning with Intent / Experience / Utility, Leader adoption tools, a Runtime-backed Learning Agent, outcome observation and File Cabinet views.
+- Optional Workers AI BGE-M3 / Vectorize semantic recall with durable indexing, scoped hydration and explicit applicability decisions.
+- Reproducible isolated learning checks and configuration guidance.
 - Code of Conduct (Contributor Covenant 2.0) and a pull request template.
 
 ### Changed
@@ -20,11 +23,15 @@ Every release lists, under **Upgrade notes**, each new migration by file name, a
 
 ### Security
 
+- Refresh transitive `body-parser` and `fast-uri` dependencies and override Miniflare's `undici` to 7.30.1 to address the pre-merge dependency audit. Cloudflare tool versions remain unchanged.
 - Vitest 4.1.12 addresses GHSA-qxg6-89mg-rqv8 and GHSA-xp26-3454-mjgp. Vitest is test tooling only and is not part of the deployed Worker.
 
 ### Upgrade notes
 
-- None. No migration, configuration or deployment change.
+- Apply `0082_business_learning.sql`, `0083_leader_learning.sql` and `0084_learning_search.sql` before deploying. These add learning storage, Leader attribution and a search outbox; existing conversations keep their pinned contracts.
+- Optional bindings: `AI` and `LEARNING_VECTOR_INDEX` with a dedicated 1024-dimensional cosine index. See [Business learning](docs/business-learning.md). Without these bindings, records and directory access work, while semantic recall reports unavailable.
+- The new `learning_agent` uses the existing model registry. No new model credential is required by the default preset; custom registries may assign a profile.
+- No Durable Object or Workflow declaration changes.
 
 ## [0.1.0] - 2026-10-21
 

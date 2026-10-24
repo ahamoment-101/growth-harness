@@ -1,3 +1,5 @@
+// These tests isolate editorial/domain contracts; learning orchestration has its own Runtime acceptance.
+vi.mock('../learning/business', async () => { const runtime = await import('./conversation-runtime'); return { runBusinessConversationTask: runtime.runConversationTask }; });
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { contentLinkFixture } from './content-links.test-fixture';
 import { editorialFixture } from './content-editorial.test-fixture';

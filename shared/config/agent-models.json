@@ -12,7 +12,8 @@
     "topic_decision": "openrouter/glm",
     "content_production": "openrouter/glm",
     "article_production": "openrouter/writer",
-    "content_review": "openrouter/glm"
+    "content_review": "openrouter/glm",
+    "learning_agent": "openrouter/glm"
   },
   "connections": {
     "openrouter": {
@@ -146,6 +147,7 @@
     "topic_decision": "low",
     "content_production": "low",
     "article_production": "low",
-    "content_review": "low"
+    "content_review": "low",
+    "learning_agent": "low"
   }
 }

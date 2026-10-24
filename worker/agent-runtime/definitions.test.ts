@@ -5,7 +5,7 @@ describe('agent runtime definitions', () => {
   it('injects different context tools for different agent ids', () => {
     expect(agentDefinition('runtime_synthetic').injectedTool).toBe('read_synthetic_context');
     expect(agentDefinition('strategy_research').injectedTool).toBeNull();
-    expect(agentDefinition('strategy_research').definitionVersion).toBe(42);
+    expect(agentDefinition('strategy_research').definitionVersion).toBe(44);
     expect(agentDefinition('strategy_research').runPolicy.allowScheduled).toBe(false);
     expect(agentDefinition('strategy_research').parameterContractVersion).toBe(2);
     expect(agentDefinition('strategy_research').promptVersion).toBe('strategy-library-v15-language-english-v2');
@@ -20,19 +20,19 @@ describe('agent runtime definitions', () => {
     // task answer different questions, and the prompt says which to reach for.
     expect(agentDefinition('strategy_research').tools).toContain('strategy_search_web');
     expect(() => assertAgentDefinition(agentDefinition('strategy_research'))).not.toThrow();
-    expect(agentDefinition('topic_decision').definitionVersion).toBe(26);
+    expect(agentDefinition('topic_decision').definitionVersion).toBe(28);
     expect(agentDefinition('topic_decision').promptVersion).toBe('topic-decision-library-v19-language-english-v2');
     expect(agentDefinition('content_production').tools).toEqual([
       'save_coverage_plan', 'inspect_content_group', 'read_content_article', 'read_published_articles', 'edit_article_internal_links', 'start_article_tasks', 'start_content_reviews',
       'complete_content_group', 'defer_content_group', 'request_human_input',
     ]);
-    expect(agentDefinition('content_production').definitionVersion).toBe(25);
+    expect(agentDefinition('content_production').definitionVersion).toBe(27);
     expect(agentDefinition('content_production').promptVersion).toBe('content-production-agent-loop-v21-immutable-publication-english-v2');
-    expect(agentDefinition('article_production').definitionVersion).toBe(23);
+    expect(agentDefinition('article_production').definitionVersion).toBe(25);
     expect(agentDefinition('article_production').promptVersion).toBe('article-production-agent-loop-v19-editorial-readiness');
     expect(agentDefinition('article_production').tools).toEqual(['read_article_source', 'save_claim_evidence', 'read_published_articles', 'article_search_web', 'find_link_targets', 'submit_article', 'save_article_draft', 'run_self_check', 'deliver_article', 'defer_article', 'request_human_input']);
     expect(agentDefinition('content_review').tools).toEqual(['read_article_source', 'submit_content_review', 'defer_content_review', 'request_human_input']);
-    expect(agentDefinition('content_review').definitionVersion).toBe(15);
+    expect(agentDefinition('content_review').definitionVersion).toBe(17);
     expect(agentDefinition('content_review').runPolicy.allowSubAgents).toBe(false);
     expect(agentDefinition('content_production').runPolicy.maxActiveChildren).toBe(20);
     for (const id of ['growth_leader', 'business_research', 'strategy_research', 'keyword_research', 'topic_decision', 'content_production', 'article_production', 'content_review'] as const) {

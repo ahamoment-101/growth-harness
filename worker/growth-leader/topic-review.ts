@@ -7,6 +7,7 @@ import { getTopicDecisionResult, publicTopicDecisionResult, approveTopicDecision
 import { dispatchChildTask } from '../agent-runtime/task-children';
 import { topicInstance } from '../agent-runtime/topic-scope';
 import { contentGroupInstance } from '../agent-runtime/content-production';
+import { bindLearningDelegation, topicPractice } from '../learning/leader';
 
 function conflict(message: string): never {
   throw new ToolContractError(message, { kind: 'state_conflict', effects: 'none', issues: [], guidance: 'Read the current topic group and choose an observed version.' });
@@ -37,12 +38,14 @@ export function registerLeaderTopicReview(registry: ToolRegistry, env: RuntimeAg
       const common = { db: env.DB, workspaceId: task.workspace_id, siteId: task.site_id,
         resultId: args.group_ref, actorId: 'growth_leader', note: args.reason,
         expectedUpdatedAt: args.observed_updated_at, operationId: op.id };
+      const learning = await bindLearningDelegation(env, task, op, await topicPractice(env, task, args.group_ref));
       if (args.decision === 'approve') {
         const productionGroupId = `leader-topic-group:${op.id}`;
         const parentRunId = `child-${task.id}-${op.turn}`;
         if (!replay) await approveTopicDecisionResult({ ...common, productionGroupId, parentRunId });
         const assignment = { goal: 'Produce and review the approved topic group.', reason: args.reason,
-          context: { approved_group_ref: args.group_ref, production_group_ref: productionGroupId } };
+          context: { approved_group_ref: args.group_ref, production_group_ref: productionGroupId,
+            ...(learning ? { business_guidance: learning.guidance } : {}) } };
         const dispatched = await dispatchChildTask({ env, step, task, operation: op, agentId: 'content_production',
           instanceId: contentGroupInstance(productionGroupId),
           summary: { group_id: productionGroupId, decision_group_id: args.group_ref, delegation: assignment }, assignment });
@@ -55,6 +58,7 @@ export function registerLeaderTopicReview(registry: ToolRegistry, env: RuntimeAg
       if (!proposal) conflict('Reviewed topic group no longer exists');
       const assignment = { goal: 'Revise this topic proposal in response to the Leader review.',
         reason: args.reason, context: { previous_group_ref: args.group_ref, group_goal: proposal.group_goal,
+          ...(learning ? { business_guidance: learning.guidance } : {}),
           rationale: proposal.rationale, items: proposal.items.map(item => ({ title_direction: item.title_direction,
             primary_keyword: item.primary_keyword, rationale: item.rationale, hypothesis: item.hypothesis,
             evidence: item.evidence, risk: item.risk })) } };

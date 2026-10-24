@@ -1,10 +1,11 @@
+import { runBusinessConversationTask } from '../learning/business';
 import { STRATEGY_DIRECTION_SLOT_INSTRUCTIONS, STRATEGY_DRAFT_SLOT_INSTRUCTIONS, STRATEGY_SLOT_INSTRUCTIONS } from './strategy-slots';
 import { STRATEGY_KEYWORD_DELEGATION_INSTRUCTIONS } from './library-business-instructions';
 import type { StreamFn } from '@earendil-works/pi-agent-core';
 import type { Api, Model } from '@earendil-works/pi-ai';
 import type { RuntimeAgentEnv, RuntimeWorkflowStep } from './env';
 import { agentDefinition } from './definitions';
-import { runConversationTask, type ConversationAgent } from './conversation-runtime';
+import { type ConversationAgent } from './conversation-runtime';
 import { STRATEGY_DIRECTION_TASK_SYSTEM, STRATEGY_DRAFT_TASK_SYSTEM, STRATEGY_TASK_SYSTEM, strategyTaskTools } from './strategy-task';
 import { activeStrategyVersion, getStrategyRun } from '../lib/research/strategy-store';
 import { getSiteForWorkspace } from '../db';
@@ -60,7 +61,7 @@ export async function runStrategyConversation(input: Input) {
       ? 'Carry out the requested research and submit the next strategy version, even when existing recommendations remain applicable. Finish after submission, or wait/pause for a concrete blocker. A text response or restoration of old reports does not deliver the requested new version.'
       : 'The strategy task has no committed outcome yet. Continue any useful research or draft revision, submit a ready strategy, or use finish_strategy to express no_change, waiting or paused. A text response alone does not save a strategy version.',
   };
-  const result = await runConversationTask({ ...input, definition, agent });
+  const result = await runBusinessConversationTask({ ...input, definition, agent });
   const task = (await taskForRun(env.DB, runId))!;
   return { output: { outcome: result.status === 'completed' ? result.outcome : result.status,
     task_id: task.id, strategy_version: 0, territories: 0, clusters: 0, keywords: 0, web_sources: 0,

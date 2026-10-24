@@ -1,3 +1,5 @@
+// These tests isolate editorial/domain contracts; learning orchestration has its own Runtime acceptance.
+vi.mock('../learning/business', async () => { const runtime = await import('./conversation-runtime'); return { runBusinessConversationTask: runtime.runConversationTask }; });
 import { SYSTEM_LANGUAGE } from '../../shared/system-language';
 import { TOPIC_LIBRARY_INSTRUCTIONS } from './library-business-instructions';
 import { expect, it, vi } from 'vitest';

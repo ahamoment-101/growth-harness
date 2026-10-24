@@ -1,3 +1,4 @@
+import { learningTools, runLearningAgent } from '../learning/agent';
 import { runLeaderConversation } from '../growth-leader/runtime';
 import { createConversation, settleLeaderCheckpoint, wakeConversation } from '../growth-leader/service';
 import { dispatchPendingAgentEvents, publicationConversationId } from '../agent-events/pool';
@@ -128,6 +129,7 @@ const syntheticModule = (id: 'runtime_synthetic' | 'runtime_synthetic_child'): R
 });
 
 const modules: RuntimeAgentModule[] = [
+  { definition: agentDefinition('learning_agent'), loadContext: async () => [], createToolRegistry: env => learningTools(env), execute: runLearningAgent },
   {
     definition: agentDefinition('growth_leader'), loadContext: async () => [],
     execute: ({ env, step, run }) => runLeaderConversation({ env, step, runId: run.id }),

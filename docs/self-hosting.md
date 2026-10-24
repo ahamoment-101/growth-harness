@@ -78,3 +78,7 @@ node scripts/report-agent-requests.mjs <run-id> --remote --config wrangler.jsonc
 ```
 
 Select `--local` or `--remote` explicitly. The database defaults to the selected configuration/environment's `DB` binding. `--env <environment>` chooses a Wrangler environment and `--database <name>` selects a different database intentionally. Confirm the configuration/account before a remote read, and keep operational reports private.
+
+## Optional business learning recall
+
+Business experience is stored in your D1 database after migrations 0082–0084. The internal Learning Agent uses your existing model configuration. Semantic retrieval additionally needs Workers AI (`AI`) and a dedicated Vectorize index (`LEARNING_VECTOR_INDEX`). Follow [business learning installation](business-learning.md#installation-and-upgrades); never reuse production indexes for local acceptance. Without these bindings the Leader can browse saved history, but semantic recall is explicitly unavailable.

@@ -1,6 +1,6 @@
 // Real local Wrangler/D1 and installation commands. No remote resources or provider requests.
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, rm, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -35,7 +35,8 @@ try {
   assert.deepEqual(readVars(join(directory, '.dev.vars')), first, 'Setup must not rotate secrets on replay');
   run('scripts/config-check.ts', ['--config', configPath, '--require-models']);
   const migrations = wrangler(['--command', 'select count(*) as count from d1_migrations'])[0].results[0].count;
-  assert.equal(migrations, 81);
+  assert.equal(migrations, (await readdir('migrations')).filter(name => /^\d{4}_.+\.sql$/.test(name)).length);
+  assert.equal(wrangler(['--command', "select count(*) as count from sqlite_master where type='table' and name in ('learning_records','learning_feedback','learning_search_jobs')"])[0].results[0].count, 3);
   wrangler(['--command', `insert into app_users(id,google_sub,email,display_name,created_at,last_login_at) values('owner','original-google','owner@example.invalid','Owner',datetime('now'),datetime('now'));
     update workspaces set owner_user_id='owner' where id='primary-workspace';
     insert into auth_sessions(id,token_hash,user_id,workspace_id,expires_at,last_seen_at,created_at) values('old-session','old-token','owner','primary-workspace','2099','2026','2026');`]);

@@ -1,3 +1,4 @@
+import { runBusinessConversationTask } from '../learning/business';
 import { saveSlot, resolveSlot, bindOperation } from './parameter-slots';
 import { z } from 'zod';
 import { BUSINESS_MODULES, contentFromBusinessMarkdown } from '../../shared/business';
@@ -6,7 +7,6 @@ import { listBusinessModules } from '../lib/business';
 import { readSource, sourceIndex } from '../lib/research/evidence';
 import { agentDefinition } from './definitions';
 import type { RuntimeAgentEnv, RuntimeWorkflowStep } from './env';
-import { runConversationTask } from './conversation-runtime';
 import { researchPageTool } from './research-page-tool';
 import { ToolContractError } from './tool-failure';
 import { ToolRegistry } from './tools';
@@ -111,7 +111,7 @@ export function businessResearchTools(env: RuntimeAgentEnv, task?: AgentTask, op
 }
 
 export async function runBusinessResearch(input: { env: RuntimeAgentEnv; step: RuntimeWorkflowStep; runId: string }) {
-  const result = await runConversationTask({ ...input, definition: agentDefinition('business_research'), agent: {
+  const result = await runBusinessConversationTask({ ...input, definition: agentDefinition('business_research'), agent: {
     auditCompletionTools: ['save_business_document'],
     instructions: BUSINESS_RESEARCH_SYSTEM,
     context: async task => {

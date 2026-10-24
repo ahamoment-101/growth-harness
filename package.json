@@ -67,6 +67,9 @@
     "url": "https://github.com/ahamoment-101/growth-harness/issues"
   },
   "overrides": {
+    "miniflare": {
+      "undici": "7.30.1"
+    },
     "agents": {
       "@modelcontextprotocol/client": "$@modelcontextprotocol/client",
       "@modelcontextprotocol/server": "$@modelcontextprotocol/server",

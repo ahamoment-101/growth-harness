@@ -74,6 +74,10 @@
   "triggers": {
     "crons": ["0 * * * *", "* * * * *"]
   },
+  // Optional semantic experience recall. See docs/business-learning.md for provisioning.
+  // Leave absent for account-free local development; D1 learning and directory tools still work.
+  // "ai": { "binding": "AI", "remote": true },
+  // "vectorize": [{ "binding": "LEARNING_VECTOR_INDEX", "index_name": "growth-harness-learning", "remote": true }],
   "vars": {
     // Model defaults: shared/config/agent-models.json. MODEL_REGISTRY is an optional full override.
     "CLOUDFLARE_WORKER_NAME": "growth-harness",
