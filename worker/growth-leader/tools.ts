@@ -9,9 +9,10 @@ import { ToolRegistry } from '../agent-runtime/tools';
 import type { RuntimeAgentEnv, RuntimeWorkflowStep } from '../agent-runtime/env';
 import type { AgentTask, TaskOperation } from '../agent-runtime/task-store';
 import { taskForRun, TaskPendingError } from '../agent-runtime/task-store';
-import { AGENT_IDS, agentDefinition, type AgentId } from '../agent-runtime/definitions';
+import { AGENT_IDS, agentDefinition, isAgentId, type AgentId } from '../agent-runtime/definitions';
 import { runtimeAgentModule } from '../agent-runtime/agent-modules';
 import { dispatchChildTask } from '../agent-runtime/task-children';
+import { observeChildInput, provideChildFacts } from '../agent-runtime/child-input';
 import { saveSlot, resolveSlot, bindOperation } from '../agent-runtime/parameter-slots';
 import { researchPageTool } from '../agent-runtime/research-page-tool';
 import { readRuntimeJson } from '../agent-runtime/runtime-content';
@@ -277,17 +278,34 @@ ${messages.map(m=>`- User message ${m.id}: ${m.content}`).join('\n')}`;
         ...(task.definition_version >= 20 ? { learning_practice_ref: learning?.practice_ref || null } : {}),
         ...(task.definition_version >= 7 ? { receipt_kind: 'delegation_accepted', meaning: 'Work accepted; no completed business outcome is established by this receipt.' } : {}) };
     } });
-  registry.register({ ...common, name: 'read_task', version: task.definition_version >= 8 ? 4 : task.definition_version >= 7 ? 3 : task.definition_version >= 4 ? 2 : 1, capability: 'read', description: task.definition_version >= 4
+  if (task.definition_version >= 22) registry.register({ ...common, name: 'provide_task_facts', capability: 'write', replaySafety: 'idempotent', executionMode: 'durable_call',
+    description: 'Give new facts and their sources to an observed waiting direct child in its original Task/Run. Select input_ref from read_task. The child judges whether the evidence is sufficient, continues its work or keeps waiting. This does not answer a human form, grant approval, replace the assignment or create another task. A saved input/dispatch receipt is not proof of resumed business progress.',
+    inputSchema: z.object({ input_ref: z.string().min(1), facts: z.string().trim().min(1), sources: z.array(z.string().trim().min(1)).min(1) }),
+    execute: args => {
+      if (!operation) throw new Error('Providing task facts requires a durable operation');
+      return provideChildFacts(env, task, operation, args);
+    },
+  });
+  registry.register({ ...common, name: 'read_task', version: task.definition_version >= 22 ? 5 : task.definition_version >= 8 ? 4 : task.definition_version >= 7 ? 3 : task.definition_version >= 4 ? 2 : 1, capability: 'read', description: task.definition_version >= 22
+    ? 'Read a direct task’s assignment, status, formal result and pending human questions. Waiting direct children whose pinned contract supports supplementary facts include an input_ref for their original loop. Legacy and external-job contracts do not support this action. Original request refs identify the existing user form; do not recreate that form merely to relay it. Follow next_request_offset for more questions. No specialist internal conversations are exposed.' : task.definition_version >= 4
     ? 'Read a scoped task together with its saved assignment, status and delivered outcome. Relate this reply to the original delegation and the user request in your conversation. Does not expose specialist conversations.'
-    : 'Read a scoped task status and delivered outcome. Does not expose specialist conversations.', inputSchema: z.object({ task_ref: z.string() }),
+    : 'Read a scoped task status and delivered outcome. Does not expose specialist conversations.', inputSchema: z.object({ task_ref: z.string(), ...(task.definition_version >= 22 ? { request_offset: z.number().int().nonnegative().default(0) } : {}) }),
     execute: async args => {
       const row = await env.DB.prepare('select active_run_id from agent_tasks where id=? and workspace_id=? and site_id=? and (id=? or parent_task_id=?)').bind(args.task_ref,task.workspace_id,task.site_id,task.id,task.id).first<{active_run_id:string}>();
       if (!row) invalid('Task not found in this conversation or its direct delegations');
       const value = (await taskForRun(env.DB,row.active_run_id))!;
+      const inputSince = task.definition_version >= 22 && isAgentId(value.agent_id) ? agentDefinition(value.agent_id).hitlResolutionSinceVersion : undefined;
+      const requestOffset = typeof args.request_offset === 'number' ? args.request_offset : 0;
+      const requests = task.definition_version >= 22 ? (await env.DB.prepare(`select request_id,version,node_json from agent_work_requests
+        where task_id=? and handler_id='hitl' and state='pending' order by created_at,request_id limit 21 offset ?`)
+        .bind(value.id, requestOffset).all<{ request_id: string; version: string; node_json: string }>()).results : [];
       const assignment = task.definition_version >= 4 && value.assignment_id
         ? await env.DB.prepare('select id,context_json,created_at from agent_task_assignments where id=? and task_id=?')
           .bind(value.assignment_id,value.id).first<{id:string;context_json:string;created_at:string}>() : null;
       const data = { task_ref: value.id, agent: value.agent_id, status: value.status, reason: value.reason,
+        ...(task.definition_version >= 22 ? { input_ref: inputSince && value.definition_version >= inputSince ? await observeChildInput(env, task, value) : null,
+          pending_requests: requests.slice(0, 20).map(r => ({ request_id: r.request_id, version: r.version, request: JSON.parse(r.node_json) })),
+          next_request_offset: requests.length > 20 ? requestOffset + 20 : null } : {}),
         ...(task.definition_version >= 4 ? { assignment: assignment ? { id: assignment.id, created_at: assignment.created_at,
           material: await readRuntimeJson(env.DB,assignment.context_json) } : null } : {}),
         result: await readRuntimeJson(env.DB,value.output_json),
