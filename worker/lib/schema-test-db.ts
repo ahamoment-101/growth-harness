@@ -6,10 +6,10 @@ import type { D1Database } from '@cloudflare/workers-types';
 import { sqliteTestBindings } from './sqlite-test-bindings';
 
 /** Full production schema (every migration) behind a minimal D1 shim that records each prepared statement. */
-export function schemaTestDb() {
+export function schemaTestDb(options: { beforeMigration?: string } = {}) {
   const sqlite = new DatabaseSync(':memory:');
   const directory = new URL('../../migrations/', import.meta.url).pathname;
-  for (const file of (readdirSync(directory) as string[]).filter(f => f.endsWith('.sql')).sort()) sqlite.exec(readFileSync(`${directory}${file}`, 'utf8') as string);
+  for (const file of (readdirSync(directory) as string[]).filter(f => f.endsWith('.sql') && (!options.beforeMigration || f < options.beforeMigration)).sort()) sqlite.exec(readFileSync(`${directory}${file}`, 'utf8') as string);
   const seen = new Set<string>();
   /** How many times each statement was executed. */
   const runs = new Map<string, number>();

@@ -1,3 +1,4 @@
+import { findingSchema, findingText, validateFindings, type LearningFinding } from './attribution';
 import { z } from 'zod';
 import { experienceCard, learningSearchCoverage, searchLearning } from './search';
 import type {
@@ -97,7 +98,9 @@ const submitSchema = z.object({
     }),
   ),
 });
-type Submission = z.infer<typeof submitSchema>;
+const attributedSubmitSchema = submitSchema.extend({ findings: z.array(findingSchema) });
+type Submission = z.infer<typeof submitSchema> & { findings?: LearningFinding[] };
+const attributionInstructions = `\nEvidence has host-owned attribution: exact objects, versions, parent task and assignment where known. Never infer object identity from titles or narrative. Read paginated evidence as needed. A pass for object A and a deferral for object B are not a contradiction. Different versions of the same object may legitimately have different outcomes.\nFor record/feedback, findings are the complete replacement set of current evidence-grounded adjustments, deliveries, conclusions and limitations. Cite exact evidence_refs for each finding, select object scope and its exact subjects for object statements, practice scope for aggregate judgments, and unknown scope when attribution is unavailable. Practice scope must not disguise an object-specific assertion. Inspect earlier findings against current formal receipts, retract unsupported earlier statements and explain material corrections in a new finding. Prior summaries are interpretations, never primary evidence. Empty findings are allowed when nothing can be established. Code derives the displayed adjustments, delivery, conclusion and limitations from findings after preparation; standalone prose in those fields is not saved. Preparation still uses the original fields and may have no findings. Never claim that reference validation proves semantic correctness.`;
 const scopeOf = (task: AgentTask): LearningScope => ({
   workspaceId: task.workspace_id,
   siteId: task.site_id,
@@ -207,6 +210,15 @@ export function learningTools(
         ...detail,
         observation_ref,
         evidence_ids: detail.evidence.map((e) => e.id),
+        ...(t.definition_version >= 3 ? {
+          evidence_groups: Object.entries(detail.evidence.reduce<Record<string, typeof detail.evidence>>((groups, e) => {
+            const key = JSON.stringify(e.attribution?.subjects || []);
+            (groups[key] ||= []).push(e); return groups;
+          }, {})).map(([subjects, evidence]) => ({
+              subjects: JSON.parse(subjects), evidence_ids: evidence!.map(e => e.id),
+            })),
+          attribution_note: 'Groups cover this evidence page only. Empty subjects mean unassigned evidence. Follow next_cursors.evidence for additional receipts. Prior prose is not authoritative evidence.',
+        } : {}),
         available_sources: [
           {
             source: 'gsc',
@@ -345,7 +357,8 @@ export function learningTools(
     replaySafety: 'idempotent',
     description:
       'Save learning and complete this request atomically. Existing evaluation cannot be rewritten after preparation. Numeric reward comes from stored evidence. Utility is not model input.',
-    inputSchema: submitSchema,
+    version: !task || task.definition_version >= 3 ? 3 : 1,
+    inputSchema: !task || task.definition_version >= 3 ? attributedSubmitSchema : submitSchema,
     execute: async (args) => {
       const t = active();
       if (!operation) throw new Error('Learning operation required');
@@ -367,6 +380,7 @@ export async function submitLearning(
   operationId: string,
   args: Submission,
 ) {
+  const submitted = args;
   const scope = scopeOf(task),
     request = await requestForRun(env, task.active_run_id);
   const replay = await replayOperation(env.DB, scope, operationId, args);
@@ -421,6 +435,20 @@ export async function submitLearning(
       guidance:
         'No learning changes were saved. Read this request again and copy the exact evidence_ids unchanged, including separators. Keep valid citations; omit a citation if you cannot support it. More evidence can be read using the section cursor.',
     });
+  if (task.definition_version >= 3) {
+    const findings = z.array(findingSchema).parse(args.findings);
+    await validateFindings(env.DB, previous.id, findings);
+    data.experience.findings = findings;
+    if (request.phase !== 'prepare') {
+      args = { ...args,
+        adjustments: findingText(findings, 'adjustment'),
+        delivery: findingText(findings, 'delivery').join('\n'),
+        conclusion: findingText(findings, 'conclusion').join('\n'),
+        limitations: findingText(findings, 'limitation'),
+        evidence_refs: [...new Set([...args.evidence_refs, ...findings.flatMap(f => f.evidence_refs)])],
+      };
+    }
+  }
   const prepare = request.phase === 'prepare';
   if (prepare) {
     if (data.experience.preparation !== 'pending')
@@ -627,7 +655,7 @@ export async function submitLearning(
       );
     }
   }
-  return commitRecords(env.DB, scope, operationId, args, changes, extra);
+  return commitRecords(env.DB, scope, operationId, submitted, changes, extra);
 }
 
 /** Distinct failure receipts survive execution replacement; only preparation is allowed to degrade. */
@@ -689,7 +717,7 @@ export async function runLearningAgent({
       runId: run.id,
       definition,
       agent: {
-        instructions: instructions + (task.definition_version >= 2 ? '\nSemantic history search accepts natural-language intent and top_k. It returns neighbors, not verified applicable lessons. Inspect coverage and current facts; use list_learning_history for an independent paginated directory, broaden or rephrase as useful, or report no suitable lesson. Incomplete/unavailable search does not prove history is absent. Read full records before recommending compatible claims.' : ''),
+        instructions: instructions + (task.definition_version >= 3 ? attributionInstructions : '') + (task.definition_version >= 2 ? '\nSemantic history search accepts natural-language intent and top_k. It returns neighbors, not verified applicable lessons. Inspect coverage and current facts; use list_learning_history for an independent paginated directory, broaden or rephrase as useful, or report no suitable lesson. Incomplete/unavailable search does not prove history is absent. Read full records before recommending compatible claims.' : ''),
         auditCompletionTools: ['submit_learning_result'],
         context: async (task) => ({
           request: await requestForRun(env, task.active_run_id),

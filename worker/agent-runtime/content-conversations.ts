@@ -1,3 +1,4 @@
+import { taskSubjectsJson } from './task-subjects';
 import { runBusinessConversationTask } from '../learning/business';
 import { AUTHOR_INTERNAL_LINK_INSTRUCTIONS, REVIEW_INTERNAL_LINK_INSTRUCTIONS } from './content-link-policy';
 import type { RuntimeAgentEnv } from './env';
@@ -35,9 +36,10 @@ async function initializeAssignment(input: AgentModuleExecutionContext, task: Ag
   const sources = await (review ? loadContentReviewContext : loadArticleProductionContext)(input.env.DB, site, input.run);
   const value = sources.find(source => source.sourceId === (review ? 'content_review_task' : 'article_task'))!.value;
   const id = `${task.id}:initial`;
+  const subject = value as ArticleTask | ContentReviewTask;
   await input.env.DB.batch([
-    input.env.DB.prepare('insert or ignore into agent_task_assignments(id,task_id,operation_id,context_json,created_at) values(?,?,?,?,?)')
-      .bind(id, task.id, id, await persistRuntimeJson(input.env.DB, value), new Date().toISOString()),
+    input.env.DB.prepare('insert or ignore into agent_task_assignments(id,task_id,operation_id,context_json,created_at,subjects_json) values(?,?,?,?,?,?)')
+      .bind(id, task.id, id, await persistRuntimeJson(input.env.DB, value), new Date().toISOString(), taskSubjectsJson([{ type: 'job', id: subject.job_id, version: review ? (subject as ContentReviewTask).artifact_id : null }])),
     input.env.DB.prepare("update agent_tasks set assignment_id=? where id=? and assignment_id=''").bind(id, task.id),
   ]);
   return value;

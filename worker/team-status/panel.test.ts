@@ -94,11 +94,11 @@ describe('Classroom panel reads', () => {
     f.sqlite.exec(`create table jobs(id text,site_id text,topic_id text,decision_item_id text,en_title text,pt_title text);
       create table topic_decision_items(id text,title_direction text);
       create table topics(id text,title_hint text);`);
-    f.sqlite.prepare("update agent_tasks set agent_id='article_production', goal_json=?, assignment_id='brief-1' where id=?")
-      .run(JSON.stringify({ job_id: 'removed-job' }), f.task.id);
     f.sqlite.prepare("update agent_runs set agent_id='article_production' where id=?").run(f.task.active_run_id);
     f.sqlite.prepare("insert into agent_task_assignments(id,task_id,operation_id,context_json,created_at) values('brief-1',?,'brief-1',?,'now')")
       .run(f.task.id, JSON.stringify({ topic: { title_hint: 'Saved reader topic' } }));
+    f.sqlite.prepare("update agent_tasks set agent_id='article_production', goal_json=?, assignment_id='brief-1' where id=?")
+      .run(JSON.stringify({ job_id: 'removed-job' }), f.task.id);
     const list = await readAgentPanel(f.scope, 'article_production');
     const detail = await readAgentPanelTask(f.scope, 'article_production', f.task.id);
     expect(list.tasks[0].display_title).toBe('Write article · Saved reader topic');
@@ -120,9 +120,9 @@ describe('Classroom panel reads', () => {
   it('shows the author-owned saved draft and current assignment without copying Runtime state', async () => {
     const f = await fixture();
     f.sqlite.prepare("update agent_runs set agent_id='article_production' where id=?").run(f.task.active_run_id);
-    f.sqlite.prepare("update agent_tasks set agent_id='article_production', assignment_id='brief-1' where id=?").run(f.task.id);
     f.sqlite.prepare("insert into agent_task_assignments(id,task_id,operation_id,context_json,created_at) values('brief-1',?,'brief-1',?,'now')")
       .run(f.task.id, JSON.stringify({ topic: { title_direction: 'Reader question' }, editorial_brief: 'Use primary sources', source_locale: 'en', internal: 'not displayed' }));
+    f.sqlite.prepare("update agent_tasks set agent_id='article_production', assignment_id='brief-1' where id=?").run(f.task.id);
     const bundle = { versions: [{ locale: 'en', title: 'Draft title', content: '# Real saved prose' }] };
     const slot = await persistRuntimeJson(f.db, { assignment_id: 'brief-1', bundle, editorial: { sources: ['primary evidence'] } });
     f.sqlite.prepare("insert into agent_parameter_slots(task_id,ref,kind,value_json) values(?,'draft-1','article_draft',?)").run(f.task.id, slot);

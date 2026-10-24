@@ -18,6 +18,8 @@ Every release lists, under **Upgrade notes**, each new migration by file name, a
 
 ### Changed
 
+- Runtime snapshots object attribution across child tasks and assignments; Learning Agent v3 validates object/version citations and replaces unsupported prior interpretations.
+
 - CI uses `actions/checkout` 7.0.1 and `actions/setup-node` 7.1.0.
 - `@cloudflare/workers-types` is pinned to an exact version instead of `latest`.
 
@@ -28,6 +30,7 @@ Every release lists, under **Upgrade notes**, each new migration by file name, a
 
 ### Upgrade notes
 
+- Apply `0085_task_subjects.sql` and `0086_learning_attribution.sql` before deploying the attribution update. These add subject snapshots and conservatively backfill evidence relationships; no learning conclusions or rewards are rewritten. Existing Learning Agent v1/v2 runs keep their contracts.
 - Apply `0082_business_learning.sql`, `0083_leader_learning.sql` and `0084_learning_search.sql` before deploying. These add learning storage, Leader attribution and a search outbox; existing conversations keep their pinned contracts.
 - Optional bindings: `AI` and `LEARNING_VECTOR_INDEX` with a dedicated 1024-dimensional cosine index. See [Business learning](docs/business-learning.md). Without these bindings, records and directory access work, while semantic recall reports unavailable.
 - The new `learning_agent` uses the existing model registry. No new model credential is required by the default preset; custom registries may assign a profile.

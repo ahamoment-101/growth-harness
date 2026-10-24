@@ -46,6 +46,31 @@ describe('real child start with captured parent authority', () => {
     await expect(childEnv.DB.prepare("update agent_tasks set reason='late' where id=?").bind(child.id).run()).rejects.toThrow('ancestor closed');
   });
 
+  it('inherits subjects through grandchildren without sharing execution authority and rejects changed replay attribution', async () => {
+    const f = await fixture();
+    const subject = { type: 'document', id: 'document-a', version: 'draft-1' };
+    const request = { ...f.request, agentId: 'growth_leader' as const, initialAssignment: { id: 'assignment-a', material: { brief: 'Read document A' }, subjects: [subject] } };
+    await startRuntimeRun(f.env, request);
+    const childExecution = (await currentExecution(f.db, 'child'))!;
+    await activateRuntimeExecution(f.db, authorityForExecution(childExecution), childExecution.workflow_id);
+    const childEnv = executionEnvironment(f.host, authorityForExecution(childExecution));
+    await startRuntimeRun(childEnv, { ...f.request, runId: 'grandchild', instanceId: 'grandchild', agentId: 'growth_leader', parentRunId: 'child' });
+    const grandExecution = (await currentExecution(f.db, 'grandchild'))!;
+    await activateRuntimeExecution(f.db, authorityForExecution(grandExecution), grandExecution.workflow_id);
+    const grandEnv = executionEnvironment(f.host, authorityForExecution(grandExecution));
+    await startRuntimeRun(grandEnv, { ...f.request, runId: 'great-grandchild', instanceId: 'great-grandchild', parentRunId: 'grandchild' });
+    for (const id of ['child', 'grandchild', 'great-grandchild']) {
+      const row = await f.db.prepare('select subjects_json,parent_task_id,parent_assignment_id from agent_tasks where id=?').bind(id).first<{ subjects_json: string; parent_task_id: string; parent_assignment_id: string }>();
+      expect(JSON.parse(row!.subjects_json)).toEqual([subject]);
+      if (id === 'grandchild') expect(row).toMatchObject({ parent_task_id: 'child', parent_assignment_id: 'assignment-a' });
+    }
+    await startRuntimeRun(f.env, request);
+    await expect(startRuntimeRun(f.env, { ...request, initialAssignment: { ...request.initialAssignment, subjects: [{ ...subject, id: 'document-b' }] } })).rejects.toThrow('subject identity conflict');
+    await expect(startRuntimeRun(f.env, { ...request, initialAssignment: { ...request.initialAssignment, id: 'different-assignment' } })).rejects.toThrow('subject identity conflict');
+    expect(await f.db.prepare('select count(*) as n from agent_tasks').first('n')).toBe(4);
+    await expect(requireTask(grandEnv.DB, 'great-grandchild')).rejects.toThrow('stale');
+  });
+
   it('recovers attachment completed before Execution creation without replacing credentials', async () => {
     const f = await fixture();
     // Interrupt exactly after the attachment transaction commits.

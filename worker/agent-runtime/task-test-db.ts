@@ -19,6 +19,7 @@ export function taskTestDb() {
   sqlite.exec(readFileSync(new URL('../../migrations/0063_agent_work.sql', import.meta.url).pathname, 'utf8').split('alter table topic_decision_results')[0]);
   sqlite.exec(readFileSync(new URL('../../migrations/0064_work_requests.sql', import.meta.url).pathname, 'utf8'));
   sqlite.exec(readFileSync(new URL('../../migrations/0068_runtime_request_blobs.sql', import.meta.url).pathname, 'utf8'));
+  sqlite.exec(readFileSync(new URL('../../migrations/0085_task_subjects.sql', import.meta.url).pathname, 'utf8'));
   const counts = { d1: 0, statements: 0 };
   let batching = false;
   const counted = () => { counts.statements++; if (!batching) counts.d1++; };

@@ -1,3 +1,4 @@
+import { taskSubjectsJson, type TaskSubject } from './task-subjects';
 import { runBusinessConversationTask } from '../learning/business';
 import { z } from 'zod';
 import { editorialError, type CoveragePlan, type EditorialCandidate } from './content-editorial';
@@ -24,7 +25,7 @@ export const CONTENT_COMPLETION_DESCRIPTION = 'Close management of the observed 
 
 export const contentAssignmentSelection = z.object({ observation_ref: z.string().min(1), job_ids: z.array(z.string().min(1)).min(1).max(20), judgment_summary: z.string() });
 export const contentEditorialWritingSelection = contentAssignmentSelection.extend({ editorial_brief: z.string(), coverage_plans: z.array(z.object({ job_id: z.string().min(1), coverage_ref: z.string().min(1) })) });
-type ChildBinding = { jobId: string; runId: string; assignmentId: string; instanceId: string; summary: Record<string, unknown>; material: unknown; existing: boolean };
+type ChildBinding = { jobId: string; runId: string; assignmentId: string; instanceId: string; summary: Record<string, unknown>; material: unknown; subjects?: TaskSubject[]; existing: boolean };
 
 export async function runContentParentConversation(input: AgentModuleExecutionContext) {
   const { env, run, definition } = input;
@@ -106,7 +107,7 @@ export async function runContentParentConversation(input: AgentModuleExecutionCo
           }
         }
         if (!review && material.previous_artifact_id !== item.artifact_id) throw new Error('Candidate changed after the group observation; inspect again');
-        children.push({ jobId, runId: childId, assignmentId: previous ? `${operation.id}:${jobId}` : `${childId}:initial`, instanceId: item.decision_item_id, summary, material, existing: Boolean(previous) });
+        children.push({ jobId, runId: childId, assignmentId: previous ? `${operation.id}:${jobId}` : `${childId}:initial`, instanceId: item.decision_item_id, summary, material, subjects: [{ type: 'job', id: jobId, version: review ? item.artifact_id : null }], existing: Boolean(previous) });
       }
       return children;
     });
@@ -121,15 +122,15 @@ export async function runContentParentConversation(input: AgentModuleExecutionCo
           await requireTask(env.DB, task.active_run_id);
           if (!child.existing) {
             await input.startChildRun({ runId: child.runId, workspaceId: task.workspace_id, siteId: task.site_id,
-              agentId: review ? 'content_review' : 'article_production', instanceId: child.instanceId, trigger: 'sub_agent', parentRunId: run.id, summary: child.summary, initialAssignment: { id: child.assignmentId, material: child.material } });
+              agentId: review ? 'content_review' : 'article_production', instanceId: child.instanceId, trigger: 'sub_agent', parentRunId: run.id, summary: child.summary, initialAssignment: { id: child.assignmentId, material: child.material, subjects: child.subjects } });
           } else {
             const childTask = (await taskForRun(env.DB, child.runId))!;
             if (childTask.assignment_id !== child.assignmentId) {
               const at = new Date().toISOString();
               await env.DB.batch([
-                env.DB.prepare(`insert or ignore into agent_task_assignments(id,task_id,operation_id,context_json,created_at)
-                  select ?,?,?,?,? where exists(select 1 from agent_tasks where id=? and parent_task_id=? and status='waiting' and epoch=?)`)
-                  .bind(child.assignmentId, childTask.id, child.assignmentId, await persistRuntimeJson(env.DB, child.material), at, childTask.id, task.id, childTask.epoch),
+                env.DB.prepare(`insert or ignore into agent_task_assignments(id,task_id,operation_id,context_json,created_at,subjects_json)
+                  select ?,?,?,?,?,? where exists(select 1 from agent_tasks where id=? and parent_task_id=? and status='waiting' and epoch=?)`)
+                  .bind(child.assignmentId, childTask.id, child.assignmentId, await persistRuntimeJson(env.DB, child.material), at, taskSubjectsJson(child.subjects), childTask.id, task.id, childTask.epoch),
                 env.DB.prepare(`update agent_tasks set assignment_id=? where id=? and parent_task_id=? and status='waiting' and epoch=?
                   and exists(select 1 from agent_task_assignments where id=?)`).bind(child.assignmentId, childTask.id, task.id, childTask.epoch, child.assignmentId),
                 env.DB.prepare(`insert or ignore into agent_task_inputs(id,task_id,actor_id,content,created_at)

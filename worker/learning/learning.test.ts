@@ -115,6 +115,40 @@ async function ready(f: ReturnType<typeof fixture>, id: string) {
   return r.id;
 }
 describe('business learning integrity', () => {
+  it('v3 replaces unsupported prior interpretations with cited findings and replays the original submission once', async () => {
+    const f = fixture(), id = await ready(f, 'topic');
+    const old = await requireRecord(f.db, scope, id), before: LearningData = JSON.parse(old.data_json);
+    before.experience.insight = 'Incorrect old conflict between two different objects';
+    await commitRecords(f.db, scope, 'old-interpretation', {}, [{ previous: old, data: before }]);
+    await addEvidence(f.db, scope, id, 'formal', 'feedback', 'topic', { result: 'Two different objects' });
+    task(f, 'learner-v3', 'learning_agent');
+    f.sqlite.prepare("update learning_requests set run_id='learner-v3',status='running' where id='evidence:formal'").run();
+    const t = { ...(await taskForRun(f.db, 'learner-v3'))!, definition_version: 3 };
+    const env = { DB: f.db } as RuntimeAgentEnv;
+    const current = await requireRecord(f.db, scope, id);
+    const args: Parameters<typeof submitLearning>[3] = {
+      observation_ref: await saveSlot(f.db, t, 'learning_record', { id, version: current.version }),
+      title: 'unused', goal: 'unused', context: '', expectation: '', hypothesis: '', approach: '',
+      adjustments: [], delivery: 'Unchecked claim must not be saved', evaluation: null, observation: null,
+      conclusion: 'Incorrect old conflict', limitations: [], evidence_refs: ['formal'], reward: null, compatible_uses: [],
+      findings: [{ scope: 'practice', subjects: [], kind: 'conclusion', text: 'The prior conflict interpretation is withdrawn; the receipts concern different objects.', evidence_refs: ['formal'] }],
+    };
+    const first = await submitLearning(env, t, 'submit-v3', args);
+    expect(await submitLearning(env, t, 'submit-v3', args)).toEqual(first);
+    const saved = recordView(await requireRecord(f.db, scope, id));
+    expect(saved.version).toBe(current.version + 1);
+    expect(saved.experience.insight).toContain('withdrawn');
+    expect(saved.experience.insight).not.toContain('Incorrect old conflict');
+    expect(saved.experience.delivery).toBe('');
+    expect(saved.experience.findings).toEqual(args.findings);
+    expect(saved.experience.evaluation).toEqual(before.experience.evaluation);
+    expect(saved.utility.score).toBeNull();
+    const legacy = { ...t, definition_version: 2 };
+    const legacyTool = learningTools(env, legacy).resolve(agentDefinition('learning_agent'), 'submit_learning_result');
+    expect(legacyTool.inputSchema.safeParse({ ...args, findings: undefined }).success).toBe(true);
+    const currentTool = learningTools(env, t).resolve(agentDefinition('learning_agent'), 'submit_learning_result');
+    expect(currentTool.inputSchema.safeParse({ ...args, findings: undefined }).success).toBe(false);
+  });
   it('reports a frozen arithmetic gap as unknown and keeps the agreement unchanged', () => {
     const frozen = { ...agreement, constants: { target: 0, one: 1 } };
     expect(
