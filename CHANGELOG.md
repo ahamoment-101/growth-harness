@@ -39,7 +39,7 @@ Every release lists, under **Upgrade notes**, each new migration by file name, a
 
 ### Upgrade notes
 
-- The formal-outcome/delegated-adoption update requires no additional migration, secret or binding. New tasks use Leader 25, Learning Agent 6 and Topic 30; existing tasks keep pinned contracts. See [Business learning](docs/business-learning.md) and [acceptance boundaries](docs/learning-outcome-evidence.md#production-acceptance-update).
+- The formal-outcome/delegated-adoption update requires no additional migration, secret or binding. New tasks use Leader 25, Learning Agent 6 and Topic 30; existing tasks keep pinned contracts. See [Business learning](docs/business-learning.md) and [acceptance boundaries](docs/verification.md#business-learning).
 - Supplementary task facts require no migration, new secret or binding. New tasks use the updated Agent tool contracts; existing tasks retain their pinned versions.
 - Apply `0085_task_subjects.sql` and `0086_learning_attribution.sql` before deploying the attribution update. These add subject snapshots and conservatively backfill evidence relationships; no learning conclusions or rewards are rewritten. Existing Learning Agent v1/v2 runs keep their contracts.
 - Apply `0082_business_learning.sql`, `0083_leader_learning.sql` and `0084_learning_search.sql` before deploying. These add learning storage, Leader attribution and a search outbox; existing conversations keep their pinned contracts.
@@ -65,7 +65,7 @@ First public release.
 - **Fresh installations** apply the baseline migrations `0001`–`0081` with `npm run setup -- --local` or `npm run db:migrate:remote`. No manual step is needed.
 - **Instances created before this release** (from an earlier private build):
   - `0073`–`0080` change schema and Runtime protocol. Do not upgrade while old-protocol tasks are executing.
-  - `0075_language_only_library.sql` and `0076_language_only_topics_strategy.sql` **drop columns**. Back up D1 and complete the [language migration precheck](docs/language-only-domain.md) first.
+  - `0075_language_only_library.sql` and `0076_language_only_topics_strategy.sql` **drop columns**. Back up D1 and complete the [language migration precheck](docs/self-hosting.md#language-migration-precheck) first.
   - `0081_password_auth.sql` adds password login. Existing Google administrators should follow [Existing Instances](docs/self-hosting.md#existing-instances) before disabling Google.
 - Default Cloudflare resource names are now `growth-harness` (Worker, D1 database) and `growth-harness-research` (R2). Existing deployments keep their own names in `wrangler.jsonc`; renaming deployed resources is a separate migration.
 

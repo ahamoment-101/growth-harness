@@ -116,8 +116,30 @@ This creates an isolated test index, seeds explicitly synthetic records, checks 
 
 For a manual browser sandbox with synthetic GSC responses, run `VERIFY_REAL_RUNTIME=1 node scripts/verify-learning-local.mjs` after building. Open the printed loopback-only fixture login URL. It uses real selected models, isolated local persistence, and synthetic business documents. Start a Leader practice from the UI. Its fixture endpoints are never included in the deployed Worker. Stop it with Ctrl+C. This sandbox does not provide semantic bindings; use the semantic check above for vector acceptance.
 
-See [acceptance scope](business-learning-acceptance.md) and the [formal-outcome acceptance update](learning-outcome-evidence.md#production-acceptance-update) for tested behavior and evidence boundaries. [Delegated adoption](learning-delegated-adoption.md) documents replay and authority semantics. Functional correctness, semantic relevance, changed decisions and measured business improvement are distinct claims. Real growth requires actual publication, matured outcome data and a defensible comparison; a synthetic fixture or increasing Utility is insufficient.
+See [learning verification and known limits](verification.md#business-learning) for evidence boundaries and reproducible checks. Functional correctness, semantic relevance, changed decisions and measured business improvement are distinct claims. Real growth requires actual publication, matured outcome data and a defensible comparison; a synthetic fixture or increasing Utility is insufficient.
 
-## Object attribution
+## Attribution and replay
 
-Runtime carries saved object references through nested tasks and assignment revisions. Learning Agent v3 cites per-object evidence and reconciles prior interpretations. See [Learning attribution integrity](learning-attribution.md) for contracts, upgrade migrations, historical-data limits and acceptance scope.
+Idempotency answers whether an effect already happened. Attribution answers which practice, object and version it concerns. A practice can contain several objects; a persistent Task can receive successive assignments. One retry key cannot replace these relationships.
+
+The saved delegation selects the practice before dispatch. Runtime copies that relationship through descendant Task creation, carries opaque subject references and captures parent/assignment identity. Domain tools supply real `{ type, id, version }` references. A child without explicit object subjects inherits its parent's saved subjects, not its conversation. An author has no output artifact version until formal delivery. Empty subjects mean unknown attribution.
+
+Task reports capture immutable assignment/subject snapshots. Later reassignment cannot rewrite them. Publication references come from real job/artifact relations; a delivery can establish an artifact version only for the actual associated job. Historical migration backfill uses saved structured references, never guessed versions or inferred prose, and does not rewrite evaluations or Utility.
+
+The Learning Agent submits a complete replacement set of evidence-grounded findings: scope (`object`, `practice`, `unknown`), subjects, kind (`adjustment`, `delivery`, `conclusion`, `limitation`), text and exact evidence references. Object claims must cite matching objects/versions. Practice judgments and uncertainty remain expressible. The display derives adjustments, delivery and conclusions from these findings; the Agent reconciles unsupported prior interpretations while preserving the frozen intent, hypothesis and evaluation.
+
+Declared use in delegation has its own durable decision receipt. It binds the normalized assignment and selected full-read references before child dispatch. The practice revision, adoption set, delegation link and receipt commit atomically; a stale reference rolls back the set. An assignment outside learning also saves its empty decision so replay cannot add adoption later. Interrupted dispatch reconciles the same child under existing parent/child authority. A committed adoption remains a declared decision, with actual implementation and outcome still unproven.
+
+## Outcome evidence
+
+`read_business_evaluation` returns the exact frozen `evaluation_ref`. The Leader obtains evidence within the authorized scope and submits original receipts, available measurements, completeness and limitations through `submit_business_outcome`. A correction creates a new outcome receipt for the same practice; it does not add another feedback sample.
+
+The Learning Agent checks the agreement's source, reviewer and completeness requirements. If external review is required, the review must actually exist; an author's artifact or coordinator's completeness flag cannot substitute for it. `outcome_supported=false` keeps reward unknown. Numeric execution follows the frozen calculation; qualitative judgment follows the agreed rubric. Manual submission cannot replace automatic GSC measurements or their observation window.
+
+Topic delivery snapshots save generated group/item IDs, immutable submission version and submitted content in the same transaction as the decision. Other deliverable types retain their own evidence paths; do not assume all domains emit the topic snapshot format. Evidence membership, measurement slots/units, agreement versions and replay are validated mechanically. Whether a real receipt supports a natural-language claim remains a model judgment.
+
+## Interpretation limits
+
+A finding's valid references do not prove its reasoning correct. Implemented revisions may be recorded as conclusions rather than separate adjustments; an empty adjustment field means no separately recorded adjustments, not that no business changes happened. Explicit semantic feedback can help the Agent reclassify evidence, but default autonomous classification is not established as reliable across models.
+
+A declared adoption does not prove specialist implementation. A rubric reward establishes only that rubric's objective; it is not search performance. Utility from one compatible later practice is one sample with attribution uncertainty. Real growth needs actual external observations and a defensible comparison. See [Verification](verification.md#business-learning).

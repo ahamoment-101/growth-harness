@@ -4,7 +4,7 @@ Follow [AGENTS.md](AGENTS.md) for repository conventions and Agent design requir
 
 - [Documentation](docs/README.md)
 - [Continuous Runtime contract](docs/continuous-agent-runtime.md)
-- [Runtime implementation responsibilities](docs/Agentloopinfra.md)
+- [Runtime implementation responsibilities](docs/continuous-agent-runtime.md#7-current-code-map)
 - [Local verification](docs/verification.md)
 
 Keep credentials, deployment receipts, customer material, and private experiments outside this public distribution.
