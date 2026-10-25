@@ -1,5 +1,7 @@
+import { learningJudgmentInstructions, learningTitleInstructions } from './judgment-contract';
 import { findingSchema, findingText, validateFindings, type LearningFinding } from './attribution';
 import { z } from 'zod';
+import { readRuntimeJson } from '../agent-runtime/runtime-content';
 import { experienceCard, learningSearchCoverage, searchLearning } from './search';
 import type {
   LearningData,
@@ -99,7 +101,22 @@ const submitSchema = z.object({
   ),
 });
 const attributedSubmitSchema = submitSchema.extend({ findings: z.array(findingSchema) });
-type Submission = z.infer<typeof submitSchema> & { findings?: LearningFinding[] };
+const classifiedSubmitSchema = submitSchema.extend({
+  findings: z.array(findingSchema.extend({
+    kind: findingSchema.shape.kind.describe('adjustment: an evidenced change actually implemented during this practice; delivery: the actual output; conclusion: what the observations teach, including uncertainty; limitation: missing evidence or unsupported claims. A requested change alone is not an implemented adjustment.'),
+    text: findingSchema.shape.text.describe('For adjustment, state what changed from the earlier approach or version and the supported reason. For conclusion, state the lesson or interpretation. The same evidence can support separate adjustment and conclusion findings.'),
+  })).describe('Complete replacement set after preparation, not just additions to the previous summary. Review formal evidence for implemented changes as well as deliveries, lessons and limitations. Displayed adjustments are derived ONLY from adjustment findings; mentioning a revision inside a conclusion does not record it as an adjustment. Empty adjustment findings are valid when no implemented change can be established.'),
+});
+const titledSubmitSchema = classifiedSubmitSchema.extend({
+  title: submitSchema.shape.title.describe(learningTitleInstructions(5).trim()),
+});
+const evidencePlanSchema = z.object({ source: z.string().min(1), collector: z.string().min(1), ready_when: z.string().min(1) });
+const executableSubmitSchema = titledSubmitSchema.extend({
+  evaluation: agreementSchema.extend({ evidence_plan: evidencePlanSchema.optional().describe('Before action, specify the real evidence source, who collects or assesses it, and when it becomes assessable. Preserve existing agreements on later phases.') }).nullable(),
+  outcome_supported: z.boolean().describe('For feedback: cited original evidence meets the frozen source, completeness and reviewer requirements. False when a required independent review or input is absent. A Leader completeness declaration is not proof. Use false during preparation/record.'),
+});
+type Submission = z.infer<typeof submitSchema> & { findings?: LearningFinding[]; outcome_supported?: boolean; evaluation: (z.infer<typeof agreementSchema> & { evidence_plan?: z.infer<typeof evidencePlanSchema> }) | null };
+const evaluationInstructions = `\nDefine an executable evidence_plan during preparation: source, collector and ready_when. Use capabilities actually available, not an imaginary evaluator or an unsupported external metric. Formal business deliveries can support a qualitative rubric assessed by you independently of the author, when the objective is artifact quality. This does not measure growth. If a human or separate review is required, identify that requirement before action; missing review remains unknown. The Leader arranges ordinary business evidence collection. For GSC keep the automatic publication window.\nFor feedback from formal_evidence, inspect the attached immutable source receipts, not only the Leader summary or complete flag. Verify the frozen source and reviewer requirements and the provenance of each numeric value. Use outcome_supported=false and reward=null if they are unsupported. You may assess a qualitative artifact against the frozen rubric when you are the agreed evaluator; do not demand an additional reviewer that the agreement did not require. Select exact delivery attribution for object findings and practice scope for aggregate judgments. A completed task and an adopted lesson alone are not success evidence.`;
 const attributionInstructions = `\nEvidence has host-owned attribution: exact objects, versions, parent task and assignment where known. Never infer object identity from titles or narrative. Read paginated evidence as needed. A pass for object A and a deferral for object B are not a contradiction. Different versions of the same object may legitimately have different outcomes.\nFor record/feedback, findings are the complete replacement set of current evidence-grounded adjustments, deliveries, conclusions and limitations. Cite exact evidence_refs for each finding, select object scope and its exact subjects for object statements, practice scope for aggregate judgments, and unknown scope when attribution is unavailable. Practice scope must not disguise an object-specific assertion. Inspect earlier findings against current formal receipts, retract unsupported earlier statements and explain material corrections in a new finding. Prior summaries are interpretations, never primary evidence. Empty findings are allowed when nothing can be established. Code derives the displayed adjustments, delivery, conclusion and limitations from findings after preparation; standalone prose in those fields is not saved. Preparation still uses the original fields and may have no findings. Never claim that reference validation proves semantic correctness.`;
 const scopeOf = (task: AgentTask): LearningScope => ({
   workspaceId: task.workspace_id,
@@ -209,6 +226,12 @@ export function learningTools(
         },
         ...detail,
         observation_ref,
+        ...(t.definition_version >= 6 ? { outcome_evidence: await (async () => {
+          if (req.phase !== 'feedback') return null;
+          const row = await env.DB.prepare("select payload_json from learning_evidence where id=? and record_id=? and kind='outcome'")
+            .bind(String(JSON.parse(req.payload_json).evidence_ref || ''), req.record_id).first<{ payload_json: string }>();
+          return row ? readRuntimeJson<unknown>(env.DB, row.payload_json) : null;
+        })() } : {}),
         evidence_ids: detail.evidence.map((e) => e.id),
         ...(t.definition_version >= 3 ? {
           evidence_groups: Object.entries(detail.evidence.reduce<Record<string, typeof detail.evidence>>((groups, e) => {
@@ -220,6 +243,10 @@ export function learningTools(
           attribution_note: 'Groups cover this evidence page only. Empty subjects mean unassigned evidence. Follow next_cursors.evidence for additional receipts. Prior prose is not authoritative evidence.',
         } : {}),
         available_sources: [
+          ...(t.definition_version >= 6 ? [{ source: 'formal_evidence', connection_state: 'available',
+            scope: 'Scoped formal business deliveries and reviews submitted by the Leader; read immutable evidence before judging.',
+            collector: 'Leader arranges authorized evidence collection; Learning Agent assesses the frozen rubric. External reviews or measurements must actually exist.',
+            limitations: ['Artifact quality is not market performance', 'Missing independent review remains unknown when the agreement requires it'] }] : []),
           {
             source: 'gsc',
             connection_state: connectionReady
@@ -357,8 +384,8 @@ export function learningTools(
     replaySafety: 'idempotent',
     description:
       'Save learning and complete this request atomically. Existing evaluation cannot be rewritten after preparation. Numeric reward comes from stored evidence. Utility is not model input.',
-    version: !task || task.definition_version >= 3 ? 3 : 1,
-    inputSchema: !task || task.definition_version >= 3 ? attributedSubmitSchema : submitSchema,
+    version: !task || task.definition_version >= 6 ? 6 : task.definition_version >= 5 ? 5 : task.definition_version >= 4 ? 4 : task.definition_version >= 3 ? 3 : 1,
+    inputSchema: !task || task.definition_version >= 6 ? executableSubmitSchema : task.definition_version >= 5 ? titledSubmitSchema : task.definition_version >= 4 ? classifiedSubmitSchema : task.definition_version >= 3 ? attributedSubmitSchema : submitSchema,
     execute: async (args) => {
       const t = active();
       if (!operation) throw new Error('Learning operation required');
@@ -459,6 +486,8 @@ export async function submitLearning(
       expectation: args.expectation,
     };
     data.experience.hypothesis = args.hypothesis;
+    if (task.definition_version >= 6 && args.evaluation && !args.evaluation.evidence_plan)
+      throw new ToolContractError('Pre-action evaluation needs an executable evidence plan', { kind: 'invalid_request', effects: 'none', issues: [{ path: ['evaluation', 'evidence_plan'], message: 'Specify source, collector and ready_when using available capabilities, or preserve an unavailable agreement as null.' }], guidance: 'Describe a feasible evidence collection plan; do not invent a reviewer or measurement source.' });
     if (args.evaluation)
       validateAgreement(
         args.evaluation,
@@ -496,11 +525,14 @@ export async function submitLearning(
     const payload = JSON.parse(outcome.payload_json) as {
       values?: Record<string, { value: number; unit: string }>;
       complete?: boolean;
+      source?: string;
+      agreement_version?: number;
     };
     if (
       agreement &&
       data.experience.preparation === 'ready' &&
-      payload.complete === true
+      payload.complete === true &&
+      (payload.source !== 'formal_evidence' || (payload.agreement_version === agreement.version && args.outcome_supported === true))
     ) {
       if (agreement.method === 'numeric') {
         // Missing inputs remain explicitly unassessable; invalid arithmetic is returned for investigation.
@@ -717,7 +749,7 @@ export async function runLearningAgent({
       runId: run.id,
       definition,
       agent: {
-        instructions: instructions + (task.definition_version >= 3 ? attributionInstructions : '') + (task.definition_version >= 2 ? '\nSemantic history search accepts natural-language intent and top_k. It returns neighbors, not verified applicable lessons. Inspect coverage and current facts; use list_learning_history for an independent paginated directory, broaden or rephrase as useful, or report no suitable lesson. Incomplete/unavailable search does not prove history is absent. Read full records before recommending compatible claims.' : ''),
+        instructions: instructions + (task.definition_version >= 6 ? evaluationInstructions : '') + learningJudgmentInstructions(task.definition_version) + learningTitleInstructions(task.definition_version) + (task.definition_version >= 3 ? attributionInstructions : '') + (task.definition_version >= 2 ? '\nSemantic history search accepts natural-language intent and top_k. It returns neighbors, not verified applicable lessons. Inspect coverage and current facts; use list_learning_history for an independent paginated directory, broaden or rephrase as useful, or report no suitable lesson. Incomplete/unavailable search does not prove history is absent. Read full records before recommending compatible claims.' : ''),
         auditCompletionTools: ['submit_learning_result'],
         context: async (task) => ({
           request: await requestForRun(env, task.active_run_id),

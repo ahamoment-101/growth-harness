@@ -1,5 +1,6 @@
+import { leaderLearningJudgmentInstructions } from '../learning/judgment-contract';
 import { addBusinessLearningTools, businessLearningToolNames, BUSINESS_LEARNING_INSTRUCTIONS, SEMANTIC_LEARNING_VERSION, SEMANTIC_LEARNING_INSTRUCTIONS, supportsLearning } from '../learning/business';
-import { addLeaderLearningTools, LEADER_LEARNING_TOOLS, LEADER_LEARNING_INSTRUCTIONS, leaderOwnsLearning } from '../learning/leader';
+import { addLeaderLearningTools, leaderLearningToolNames, leaderLearningInstructions, leaderOwnsLearning } from '../learning/leader';
 import { LEADER_CONVERSATION_INSTRUCTIONS, LEADER_CONVERSATION_PRODUCTION_INSTRUCTIONS, LEADER_COORDINATION_INSTRUCTIONS } from './coordination';
 import { leaderProductionInstructions } from './production-contract';
 import { LEADER_EVIDENCE_INSTRUCTIONS } from './evidence-context';
@@ -44,7 +45,7 @@ export async function runLeaderConversation(input: {
     (task.definition_version < 9 || name !== 'find_conversations')
       && (task.definition_version >= 12 || name !== 'review_topic_group')
       && (task.definition_version >= 22 || !['provide_task_facts', 'read_human_input_requests', 'resolve_human_input_request'].includes(name))
-      && (task.definition_version >= 3 || !['read_my_inbox','complete_inbox_event','decide_publication'].includes(name))), AUDIT_TOOL, ...(supportsLearning(task) ? businessLearningToolNames(task) : []), ...(leaderOwnsLearning(task) ? LEADER_LEARNING_TOOLS : [])] };
+      && (task.definition_version >= 3 || !['read_my_inbox','complete_inbox_event','decide_publication'].includes(name))), AUDIT_TOOL, ...(supportsLearning(task) ? businessLearningToolNames(task) : []), ...(leaderOwnsLearning(task) ? leaderLearningToolNames(task.definition_version) : [])] };
   const scopedTools = (current: AgentTask, operation?: TaskOperation) => {
     const registry = input.tools?.(current, operation) || leaderTools(env, step, current, operation);
     if (definition.hitlSinceVersion && current.definition_version >= definition.hitlSinceVersion) registry.register(hitlTool(env, current, operation));
@@ -76,7 +77,8 @@ export async function runLeaderConversation(input: {
     if (task.definition_version >= 17) {
       domainInstructions += `\n${SYSTEM_LANGUAGE_INSTRUCTIONS}\n${LEADER_PUBLICATION_CONTEXT_INSTRUCTIONS}`;
     }
-    if (supportsLearning(task)) domainInstructions += '\n' + (leaderOwnsLearning(task) ? LEADER_LEARNING_INSTRUCTIONS : BUSINESS_LEARNING_INSTRUCTIONS);
+    if (supportsLearning(task)) domainInstructions += '\n' + (leaderOwnsLearning(task) ? leaderLearningInstructions(task.definition_version) : BUSINESS_LEARNING_INSTRUCTIONS);
+    domainInstructions += leaderLearningJudgmentInstructions(task.definition_version);
     if (task.definition_version >= 22) domainInstructions += '\n' + HITL_RESOLUTION_INSTRUCTIONS + '\nWhen new evidence can inform a waiting direct child, read_task exposes its original questions and an input_ref. You may use provide_task_facts to supply the evidence and its sources to that original task. The child decides whether it is sufficient; this is not a human answer or permission. If the user must respond to an existing question, reference the original task and request instead of duplicating the form. Read subsequent task reports before claiming business work has resumed. Do not broadcast facts to unrelated tasks or create a replacement task merely to deliver information.';
     if (task.definition_version >= SEMANTIC_LEARNING_VERSION) domainInstructions += '\nDelegation learning attribution must be explicit: pass practice_ref or null, and verify learning_practice_ref in the receipt.\n' + SEMANTIC_LEARNING_INSTRUCTIONS;
     else if (task.definition_version >= 20) domainInstructions += '\nDelegation learning attribution must be explicit: pass practice_ref or null, and verify learning_practice_ref in the receipt. A narrow history search returning no matches does not prove that no relevant history exists; broaden the query or list history with an empty query before making that claim.';

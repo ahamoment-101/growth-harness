@@ -1,3 +1,4 @@
+import { addEvaluationTools, citedEvidence, EVALUATION_TOOLS, EVALUATION_INSTRUCTIONS } from './evaluation';
 import { z } from 'zod';
 import type { RuntimeAgentEnv, RuntimeWorkflowStep } from '../agent-runtime/env';
 import { requireTask, type AgentTask, type TaskOperation } from '../agent-runtime/task-store';
@@ -8,10 +9,20 @@ import { listBusinessModules } from '../lib/business';
 import { LEADER_LEARNING_VERSION } from './business';
 import { addEvidence, createPractice, now, recordDetail, requireRecord, type LearningRequest } from './store';
 
-export const LEADER_LEARNING_TOOLS = ['prepare_business_practice', 'record_business_practice'] as const;
+const LEGACY_LEADER_LEARNING_TOOLS = ['prepare_business_practice', 'record_business_practice'] as const;
+export const LEADER_LEARNING_TOOLS = [...LEGACY_LEADER_LEARNING_TOOLS, ...EVALUATION_TOOLS] as const;
+export const leaderLearningToolNames = (version: number) => version >= 25 ? LEADER_LEARNING_TOOLS : LEGACY_LEADER_LEARNING_TOOLS;
 export const LEADER_LEARNING_INSTRUCTIONS = `You are the business team's sole interface to site-shared learning. Before starting a business practice worth learning from, use prepare_business_practice with the user's goal and available facts. It returns a durable practice_ref and a pre-action evaluation or an explicit preparation gap. A practice is an outcome-oriented initiative, not this whole conversation or each delegated task. Reuse its practice_ref for related delegations; prepare a new practice for a distinct initiative. Discussions need no practice. Do not backfill pre-action judgments for work already done.
 Read site history using find_business_experience and read_business_experience. Only when an experience changes your decision, save adopt_business_experience with practice_ref and your own observed experience_ref; explain the actual change and compatibility. Reading or recommendations alone are not adoption. Put the concrete business guidance in delegate_task.context and pass practice_ref separately. Specialists receive ordinary business assignments and return formal deliverables; never ask them to call learning tools, score experience, or reveal internal conversations.
 On receiving formal reports, use record_business_practice to summarize consequential adjustments, actual deliveries, limitations and your coordination decisions, citing the linked task refs. Read the practice's formal evidence to verify what was implemented. A saved adoption is your decision, not proof that specialists followed it or that it caused success. Publication and delayed measurements are captured independently. Unknown results remain unknown; never change the frozen evaluation after seeing outcomes. Utility is computed from compatible subsequent outcomes, not by you. Learning preparation may report unavailable after its recovery allowance; continue the authorized business work with that gap and retain the practice reference. Other Leader conversations may read these experiences but cannot modify this conversation's practice.`;
+
+export function leaderLearningInstructions(version: number): string {
+  const instructions = version < 24 ? LEADER_LEARNING_INSTRUCTIONS : LEADER_LEARNING_INSTRUCTIONS.replace(
+    'save adopt_business_experience with practice_ref and your own observed experience_ref',
+    'declare it in delegate_task.experience_uses using your own observed experience_ref, or use adopt_business_experience for decisions outside delegation',
+  );
+  return instructions + (version >= 25 ? EVALUATION_INSTRUCTIONS : '');
+}
 
 const scopeOf = (task: AgentTask) => ({ workspaceId: task.workspace_id, siteId: task.site_id });
 export const leaderOwnsLearning = (task: AgentTask) => task.agent_id === 'growth_leader' && task.definition_version >= LEADER_LEARNING_VERSION;
@@ -28,6 +39,7 @@ export async function requireLeaderPractice(env: RuntimeAgentEnv, task: AgentTas
 
 export function addLeaderLearningTools(registry: ToolRegistry, env: RuntimeAgentEnv, step: RuntimeWorkflowStep, task: AgentTask, operation?: TaskOperation) {
   if (!leaderOwnsLearning(task)) return registry;
+  addEvaluationTools(registry, env, task, operation);
   const common = { version: 1, approval: 'never' as const, capability: 'write' as const,
     replaySafety: 'idempotent' as const, timeoutMs: 60_000, retryable: false, outputSchema: z.unknown() };
   registry.register({ ...common, name: 'prepare_business_practice', executionMode: 'durable_call',
@@ -52,9 +64,9 @@ export function addLeaderLearningTools(registry: ToolRegistry, env: RuntimeAgent
       }
     },
   });
-  registry.register({ ...common, name: 'record_business_practice',
+  registry.register({ ...common, name: 'record_business_practice', version: task.definition_version >= 25 ? 2 : 1,
     description: 'Record the Leader’s consequential decisions and delivery assessment for its practice. Cite linked task refs; formal reports and publication receipts remain the evidence. Does not score outcomes or rewrite the pre-action agreement.',
-    inputSchema: z.object({ practice_ref: z.string().min(1), summary: z.string().min(1), task_refs: z.array(z.string()) }),
+    inputSchema: z.object({ practice_ref: z.string().min(1), summary: z.string().min(1), task_refs: z.array(z.string()), ...(task.definition_version >= 25 ? { evidence_refs: z.array(z.string().min(1)).describe('Exact evidence supporting this statement. Use [] for practice-level coordination; task IDs alone do not identify an artifact version.') } : {}) }),
     execute: async args => {
       if (!operation) throw new Error('Recording requires a durable operation');
       const bound = await bindOperation(env.DB, task, operation, args, async () => {
@@ -63,10 +75,11 @@ export function addLeaderLearningTools(registry: ToolRegistry, env: RuntimeAgent
           const linked = await env.DB.prepare('select task_id from learning_tasks where record_id=? and task_id=?').bind(args.practice_ref, id).first();
           if (!linked) invalid(`Task ${id} is not linked to this practice`);
         }
-        return args;
+        const cited = task.definition_version >= 25 ? await citedEvidence(env, args.practice_ref, (args as { evidence_refs?: string[] }).evidence_refs || []) : null;
+        return { ...args, attribution: cited ? { task_id: task.id, subjects: cited.subjects } : undefined };
       });
       await addEvidence(env.DB, scopeOf(task), bound.practice_ref, `leader-record:${operation.id}`, 'feedback', task.id,
-        { summary: bound.summary, task_refs: bound.task_refs, agent_id: task.agent_id, evidence_kind: 'leader_assessment' });
+        { summary: bound.summary, task_refs: bound.task_refs, agent_id: task.agent_id, evidence_kind: 'leader_assessment', ...(task.definition_version >= 25 ? { evidence_refs: bound.evidence_refs } : {}) }, bound.attribution);
       return { recorded: true, practice_ref: bound.practice_ref };
     },
   });

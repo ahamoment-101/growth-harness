@@ -20,8 +20,8 @@ describe('agent runtime definitions', () => {
     // task answer different questions, and the prompt says which to reach for.
     expect(agentDefinition('strategy_research').tools).toContain('strategy_search_web');
     expect(() => assertAgentDefinition(agentDefinition('strategy_research'))).not.toThrow();
-    expect(agentDefinition('topic_decision').definitionVersion).toBe(29);
-    expect(agentDefinition('topic_decision').promptVersion).toBe('topic-decision-library-v20-input-requests');
+    expect(agentDefinition('topic_decision').definitionVersion).toBe(30);
+    expect(agentDefinition('topic_decision').promptVersion).toBe('topic-decision-library-v21-delivery-receipts');
     expect(agentDefinition('content_production').tools).toEqual([
       'save_coverage_plan', 'inspect_content_group', 'read_content_article', 'read_published_articles', 'edit_article_internal_links', 'start_article_tasks', 'start_content_reviews',
       'complete_content_group', 'defer_content_group', 'request_human_input', 'read_human_input_requests', 'resolve_human_input_request',
