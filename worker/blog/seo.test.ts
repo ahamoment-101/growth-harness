@@ -260,7 +260,7 @@ describe('hreflang, robots, sitemap, schema', () => {
     expect(preview).not.toContain('Sitemap:');
   });
 
-  // Decided in docs/multilingual-site-checklist.md "Hosting and Indexing Decisions" §4: AI crawlers are not singled out, in either direction.
+  // See docs/publishing.md "URLs, Languages, and Crawling": no crawler-specific training policy is added.
   // The single wildcard group is the decision, not an unfinished feature — and it is also what
   // keeps us safe from the group-merge rule, where one UA named in two groups resolves to Disallow.
   it('gives every crawler the same rule, with no per-bot group', () => {

@@ -70,7 +70,7 @@ Successful queries are saved by site, language and country with source, observat
 
 ## Configuration and Deployment
 
-- [First-Run Verification](docs/launch-readiness.md): Missing-key recovery, presentation checks, and verification limits.
+- [First-Run Verification](docs/verification.md#first-run-configuration): Missing-key recovery and initial task checks.
 - [Configuration Guide](docs/configuration.md): Purpose, service portal, required conditions, costs, and impact of absence for each configuration item.
 - [Self-Hosting and Upgrades](docs/self-hosting.md): Your own Cloudflare resources, Secrets, deployment, migration of existing Google users, and password resets.
 - [Changelog](CHANGELOG.md): Released versions and the upgrade notes to read before each upgrade.
@@ -87,7 +87,7 @@ Follow the [local verification checklist](docs/verification.md#local-checks). De
 - Authentication `worker/lib/auth/`; configuration `shared/config/`, `scripts/configuration.ts`.
 - Agent missions and tools reside in corresponding domain directories; shared execution mechanisms reside in `worker/agent-runtime/`.
 - Database upgrades reside in `migrations/`, executed sequentially.
-- [Continuous Runtime Contract](docs/continuous-agent-runtime.md), [Cloudflare Architecture](docs/cloudflare-architecture.md), [Optional Webhook Export](docs/ingest-contract.md).
+- [Design Principles](docs/design-principles.md), [Continuous Runtime Contract](docs/continuous-agent-runtime.md), [Cloudflare Architecture](docs/cloudflare-architecture.md), [Optional Webhook Export](docs/ingest-contract.md).
 
 Publishing retains manual review; Webhook is an optional export method. Do not commit passwords, model Keys, or production business data.
 

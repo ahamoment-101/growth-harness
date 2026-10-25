@@ -37,7 +37,7 @@ Releases are tagged `vX.Y.Z` and described in [CHANGELOG](../CHANGELOG.md). To s
 
 ## Existing Instances
 
-Migrations 0073–0080 include schema and protocol changes. 0075/0076 drop the old market-partition fields and must be handled per [Language migration precheck and maintenance steps](language-only-domain.md); you must not hot-switch old-protocol Tasks that are executing. Back up first and complete the maintenance steps, migrate in order, and then deploy the corresponding Worker and pages.
+Migrations 0073–0080 include schema and protocol changes. 0075/0076 drop the old market-partition fields and must be handled per [Language migration precheck and maintenance steps](#language-migration-precheck); you must not hot-switch old-protocol Tasks that are executing. Back up first and complete the maintenance steps, migrate in order, and then deploy the corresponding Worker and pages.
 
 0081 adds password credentials, auth attempts, and the session-revocation trigger after password change, preserving the original users, Google subjects, workspaces, sites, and Agent data.
 
@@ -82,3 +82,13 @@ Select `--local` or `--remote` explicitly. The database defaults to the selected
 ## Optional business learning recall
 
 Business experience is stored in your D1 database after migrations 0082–0084. The internal Learning Agent uses your existing model configuration. Semantic retrieval additionally needs Workers AI (`AI`) and a dedicated Vectorize index (`LEARNING_VECTOR_INDEX`). Follow [business learning installation](business-learning.md#installation-and-upgrades); never reuse production indexes for local acceptance. Without these bindings the Leader can browse saved history, but semantic recall is explicitly unavailable.
+
+## Language migration precheck
+
+For installations predating migrations `0075_language_only_library.sql` and `0076_language_only_topics_strategy.sql`, these migrations **drop market-partition columns** and rebuild constraints around workspace/site/locale. Existing IDs, locales, revisions, relationships and immutable receipts are preserved. There is no automatic mapping of `global` to English or compatibility for legacy market arguments.
+
+1. Confirm the account, database and scoped release source; back up D1.
+2. Run `scripts/language-only-preflight.sql` against the intended database. Same-locale name/operation conflicts cause rollback rather than silent merging; resolve genuine duplicates through an explicit business decision.
+3. Finish affected old-protocol tasks and pending effects before cutover. Do not edit saved manifests, slots, operations or Task/Run identity to simulate an upgrade.
+4. Stop new starts during the maintenance window, apply ordered migrations and deploy matching code. Database migration and Worker deployment are separate operations.
+5. Check foreign keys, counts, configured locales and library reads before resuming new work. A local migration test does not establish that your deployed installation completed this cutover.

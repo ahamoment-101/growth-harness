@@ -25,6 +25,8 @@ Each installation has one owner workspace. Password authentication is the defaul
 
 The continuous Agent Runtime owns a persistent Task/Run and independently fenced Executions. Durable Workflows advance the same Run, and scheduled recovery resumes persisted work. Business waiting, infrastructure recovery, cancellation and completion are distinct states. See [the Runtime contract](continuous-agent-runtime.md).
 
+See [read models and caching](real-time-updates-and-cache-architecture.md) for live views, missed notifications and cache invalidation.
+
 D1 is the authoritative business store. Read models and caches must not replace authorization, version observations or durable operation receipts. Large data can be persisted in R2 while retaining stable references and explicit read boundaries. Database migrations and Worker deployments are separate operations and require a controlled upgrade sequence.
 
 ## Models and optional services

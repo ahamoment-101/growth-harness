@@ -1,4 +1,4 @@
-# Public Blog SEO / GEO Output Contract
+# Publishing, locales and public pages
 
 This document describes the actual guarantees, configuration conditions, and acceptance criteria of the shared rendering pipeline, without treating "tags are present" as proof of indexation.
 
@@ -35,8 +35,6 @@ Article metadata is preserved across Agent tool schemas, version JSON, review co
 
 ## Boundary Between Agent and Deterministic Rules
 
-This categorization addresses inconsistencies in presentation capabilities and output contracts, rather than a model quality judgment failure in a particular run. Legacy generation prompts and submit_article descriptions prohibited images, citations, and tables; QA likewise rejected them, yet the renderer already supported tables. Capability descriptions are now unified, and model call boundary tests check the descriptions received by the model and the preservation of returned fields. Mock model tests are not framed as production model canaries.
-
 Topic selection, body text, evidence sufficiency, need for images or tables, excerpt phrasing, and internal link choices remain within model judgment; the existing submit / revise / defer loop and human publication approval remain unchanged.
 
 Deterministic rules are solely responsible for: safe protocols and HTML escaping, HTML-supported heading depth and fenced code structures, URL identity and historical ownership, site/language isolation, configuration field types, and cache consistency. Images are not mandatory; subjective SEO thresholds for word count, keyword density, citation count, or quality scores are not added. Agent capability descriptions come from shared/article-presentation.ts, allowing future format or model prompt extensions without modifying shared Runtime scheduling.
@@ -45,10 +43,40 @@ Deterministic rules are solely responsible for: safe protocols and HTML escaping
 
 - `npm test`: covers legacy behavior regression, cross-layer metadata preservation, configuration clearing, full-response caching, images/tables/quotes/anchors, historical addresses, hidden protection, as well as real SQLite full migrations and address conflict tests.
 - `npm run build`: frontend/backend type checking and bundling, plus sensitive value inspection of production artifacts.
-- `worker/blog/presentation.test.ts` and `worker/blog/url-history.test.ts` are newly added contract and persistence regressions.
+- `worker/blog/presentation.test.ts` and `worker/blog/url-history.test.ts` cover presentation and persistence regressions.
 - `0041_article_url_history.sql` must be applied before deploying the Worker. Migrations record only URL changes that occur afterward and cannot restore slugs lost in the past; legacy articles will not be rewritten.
 - Post-launch verification must also include real-domain HTTP/HTML, robots, sitemap, share image accessibility, and Search Console URL inspections. A single 200, successful sitemap submission, or site: search does not prove indexing.
 
-Google imposes no special schema or AI text file requirements for AI Overviews / AI Mode. The GEO improvements here consist of crawlable body text, clear structure, citeable anchors, real images, and consistent structured information, offering no guarantees of indexing, ranking, or AI citations.
+Crawlable content and consistent metadata do not guarantee indexing, ranking or AI citations. Inspect the final deployed domain, including Cloudflare-managed robots and firewall settings, independently of local rendering.
 
-References: [Google AI features](https://developers.google.com/search/docs/appearance/ai-features), [Article structured data](https://developers.google.com/search/docs/appearance/structured-data/article), [Open Graph](https://ogp.me/).
+## Locale policy
+
+Configure the site's actual enabled locales. Business research and topic libraries are scoped by workspace/site/locale; geographic search sampling remains evidence metadata. BCP-47 language identity is separate from URL prefix: `pt-BR` may use `/pt/`, while another region needs a distinct prefix. Preserve published prefixes and record redirect history for deliberate changes.
+
+Each saved language version has its own stable URL and self-canonical. HTML and sitemap alternates reference only real versions of the same article, including the page itself and a consistent `x-default`. Independent articles do not become translations because their topics resemble one another. Language links are real crawlable anchors; do not create placeholders for missing translations.
+
+Sitemaps include published article versions and first-page listings, not every paginated listing. Listing pagination stays navigable; page numbers beyond the actual range return 404. Sitemap sharding uses the platform's URL limit. `content_updated_at` supplies content modification time rather than unrelated job status changes; full-response ETags remain the conditional-response authority described above.
+
+Preview surfaces are separate from production: preview robots disallow crawling, HTML and HTTP headers declare `noindex, follow`, and preview URLs must not become production canonical URLs. Root language negotiation uses saved preference/Accept-Language with 307, `Vary` and private/no-store; explicit language pages remain stable. Empty sites do not fabricate content.
+
+## Blog shell and identity
+
+Hosted pages use the application's own header/footer, not a scraped copy of the main site's navigation. The header has brand identity and the language selector. The footer retains a localized link to the blog index and, when configured, a link to the main site. RSS and sitemap endpoints remain available even though they are not footer navigation items.
+
+Site configuration supplies localized names, organization identity and logo. Main-site link priority is `seo_identity.organizationUrl`, then `product_origin`, then the root domain. Missing targets do not become invented links. Logo fallback uses the real site's favicon; structured data must not invent social accounts, ratings or author biographies. Header/footer containers remain wider than the article body and adapt for narrow screens.
+
+## Localized versions
+
+For an already published article, the console can start `LocalizeWorkflow` for missing enabled languages. This creates a localized rewrite from the source version, preserving facts, sources, product capabilities and link/image targets. It does not automatically synchronize later source edits or detect similar independent articles in the target locale.
+
+This path differs from initial publication: the source was approved already; a localized version passing its checks is attached and published without another human review. A failed localization is not published. Taking down one language preserves the original and the removed URL's historical ownership. Review this behavior before starting localization.
+
+Internal article references use `article:<job_id>` and resolve to the reader's available language version; absent versions render as text. External source links stay unchanged. Relevant code lives in `worker/blog/{live,render,seo,indexing}.ts`, `worker/lib/localize.ts` and `worker/workflows/localize.ts`.
+
+## Deployment checklist
+
+- Verify actual product facts, supported languages, canonical origin and published versions.
+- Read server-rendered HTML without JavaScript: title, body, real links, metadata and images must be present. Test empty, hidden, unpublished and missing pages too.
+- Check custom-domain DNS/routing, final robots, sitemap, canonical, alternates, historical redirects and ETags at the served edge. A preview response does not verify the custom domain.
+- If using Search Console, verify your own OAuth application/property and distinguish authorization, sitemap submission and indexing. Accepted submission alone proves no growth.
+- Verify optional export against the [Webhook contract](ingest-contract.md). Keep deployment receipts and customer data private; follow [Verification](verification.md) for evidence boundaries.

@@ -39,7 +39,7 @@ Published article rendering, locale policy, canonical links, sitemap and conditi
 
 Cache reads never expose hidden, unpublished or cross-site content. Publication and edits must invalidate affected read representations without changing durable article identity or bypassing approval. Preview routes remain separated from production canonical URLs and indexing policy.
 
-See [blog presentation](gsc-technical-checkpoints.md), [locale policy](multilingual-seo-strategy.md) and [blog shell](blog-shell.md).
+See [Publishing, locales and public pages](publishing.md).
 
 ## Required evaluation
 
