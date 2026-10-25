@@ -36,3 +36,9 @@ A private isolated local replay uses existing formal business evidence, the conf
 - These results support the narrower statement that persistence and projection contracts work, while default semantic reclassification remains unreliable for this case. The empty-state correction is accurate independently of that limitation. Existing production data was not rewritten, and this change has not been deployed.
 - A fourth isolated replay supplied the user's concrete feedback that revisions were present only in conclusions. It saved three adjustment findings tied to the two rejected versions and the final published version. The existing loop recovered from a missing field and an attribution mismatch before committing. Evaluation and utility stayed byte-equivalent as parsed values, and adoption remained empty. This demonstrates correction with explicit semantic feedback, not reliable unprompted classification. Production history remains untouched.
 - Browser verification is incomplete for the final replay. The local console was opened, but a final rendered readback was not captured. A local fixture preview is available; build and API readbacks must not be described as completed browser acceptance.
+
+### Publication UI check
+
+The final public build was rendered using `LEARNING_PREVIEW=1 node scripts/verify-learning-offline.mjs`, with synthetic records and all external requests disabled. The detail view showed “No adjustments recorded separately yet.” and kept unknown outcomes and Utility unknown. This verifies the copy change, not autonomous classification. The fixture's pending preparation is deliberately unprocessed because no model is called.
+
+![Synthetic local detail showing the clarified adjustment state](images/business-experience-adjustments.png)
