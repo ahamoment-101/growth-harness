@@ -146,7 +146,7 @@ export async function runTopicConversation(input: AgentModuleExecutionContext) {
   const persist = async (task: AgentTask, operation: TaskOperation, output: TopicDecisionOutput) => {
     const strategy = (await initialContext(task)).active_strategy.version;
     return persistTopicDecisionResult({ db: env.DB, workspaceId: task.workspace_id, siteId: task.site_id, runId: run.id, operationId: operation.id,
-      scope, strategyVersionId: strategy.id, strategyVersion: strategy.version, requestedCount: topicDecisionSummary(run).groupSize,
+      captureDelivery: task.definition_version >= 30, scope, strategyVersionId: strategy.id, strategyVersion: strategy.version, requestedCount: topicDecisionSummary(run).groupSize,
       locales: [scope.locale], output: aggregateLanguageTopicDecisions([{ locale: scope.locale, output }]), webEvidence: await evidence(task), searchUsed: (await evidence(task)).length > 0, decisionTurns: 0,
       languageDecisions: [{ locale: scope.locale, output, strategy }], strategyByLocale: { [scope.locale]: strategy } });
   };
@@ -253,7 +253,9 @@ export async function runTopicConversation(input: AgentModuleExecutionContext) {
             const { rationale, ...group } = resolved.draft.group!;
             const output: TopicDecisionOutput = { decision_type: 'topic_group', rationale, group: { ...group, items: resolved.draft.topics }, research_request: null, defer: null };
             const saved = await persist(task!, operation!, output);
-            return { accepted: true, outcome: 'submitted', ...saved, rationale: output.rationale, topics: await materializeLibraryTopicDrafts(env.DB as unknown as D1Database, task!.workspace_id, task!.site_id, saved.id) };
+            const topics = await materializeLibraryTopicDrafts(env.DB as unknown as D1Database, task!.workspace_id, task!.site_id, saved.id);
+            const receipt = { accepted: true, outcome: 'submitted', ...saved, rationale: output.rationale, topics };
+            return receipt;
           } })
         .register({ ...write, name: 'request_topic_research', executionMode: 'durable_call',
           description: 'Conclude without a topic group because a decision-blocking gap needs research, and request that research from the strategy research agent of this language. Within about a minute the request starts a strategy research task that receives your fields as its request; this task ends without waiting, and later topic decisions for this language wait until that research finishes. Allowed only while the draft holds no topics. This is the task\'s single submission.',

@@ -73,7 +73,7 @@ function ThreeParts({
                 ))}
               </ul>
             ) : (
-              <p>No changes reported.</p>
+              <p>No adjustments recorded separately yet.</p>
             )}
             <h4>Actual delivery</h4>
             <p>{e.delivery || 'Not delivered yet'}</p>

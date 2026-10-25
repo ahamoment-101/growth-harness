@@ -115,6 +115,35 @@ async function ready(f: ReturnType<typeof fixture>, id: string) {
   return r.id;
 }
 describe('business learning integrity', () => {
+  it('saves an adjustment and its lesson from the same evidence without inventing adoption or changing the frozen agreement', async () => {
+    const f = fixture(), id = await ready(f, 'revision-practice');
+    const original = recordView(await requireRecord(f.db, scope, id));
+    await addEvidence(f.db, scope, id, 'revision-receipt', 'feedback', 'revision-practice', { result: 'Delivered revision removes unsupported claims' });
+    task(f, 'learner-current', 'learning_agent');
+    f.sqlite.prepare("update learning_requests set run_id='learner-current',status='running' where id='evidence:revision-receipt'").run();
+    const t = { ...(await taskForRun(f.db, 'learner-current'))!, definition_version: agentDefinition('learning_agent').definitionVersion };
+    const env = { DB: f.db } as RuntimeAgentEnv;
+    const current = await requireRecord(f.db, scope, id);
+    const args: Parameters<typeof submitLearning>[3] = {
+      observation_ref: await saveSlot(f.db, t, 'learning_record', { id, version: current.version }),
+      title: '', goal: '', context: '', expectation: '', hypothesis: '', approach: '',
+      adjustments: ['Unsupported prose is ignored'], delivery: '', evaluation: null, observation: null,
+      conclusion: '', limitations: [], evidence_refs: ['revision-receipt'], reward: null, compatible_uses: [],
+      findings: [
+        { scope: 'practice', subjects: [], kind: 'adjustment', text: 'The delivered revision removed unsupported claims.', evidence_refs: ['revision-receipt'] },
+        { scope: 'practice', subjects: [], kind: 'conclusion', text: 'Checking claims before drafting may reduce rework; this has not been measured.', evidence_refs: ['revision-receipt'] },
+      ],
+    };
+    const receipt = await submitLearning(env, t, 'typed-findings', args);
+    expect(await submitLearning(env, t, 'typed-findings', args)).toEqual(receipt);
+    const detail = await recordDetail(f.db, scope, id);
+    expect(detail.record.experience.adjustments).toEqual(['[practice] The delivered revision removed unsupported claims.']);
+    expect(detail.record.experience.insight).toContain('has not been measured');
+    expect(detail.record.experience.evaluation).toEqual(original.experience.evaluation);
+    expect(detail.record.utility).toEqual(original.utility);
+    expect(detail.uses).toEqual([]);
+    expect(detail.record.version).toBe(current.version + 1);
+  });
   it('v3 replaces unsupported prior interpretations with cited findings and replays the original submission once', async () => {
     const f = fixture(), id = await ready(f, 'topic');
     const old = await requireRecord(f.db, scope, id), before: LearningData = JSON.parse(old.data_json);

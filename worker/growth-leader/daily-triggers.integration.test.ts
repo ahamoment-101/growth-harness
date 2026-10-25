@@ -65,7 +65,7 @@ describe('daily trigger isolated startup', () => {
         scopeRef = scope.scope_ref;
         sentDelegation = true;
         return replayConversationResponse(reply({ id: 'delegate-missing-scope', name: 'delegate_task', arguments: {
-          agent_ref: 'topic_decision', practice_ref: null,
+          agent_ref: 'topic_decision', experience_uses: [], practice_ref: null,
           goal: 'Start a new batch of Chinese topic selection for this site', reason: 'The user-saved daily topic selection trigger configuration is due',
           context: `Combining the existing keyword library and in-flight work, produce a batch of topics ready for review. scope_ref: ${scopeRef}`,
         } }), stream)(m, context, options);
@@ -78,7 +78,7 @@ describe('daily trigger isolated startup', () => {
         expect(f.sqlite.prepare("select count(*) n from agent_tasks where agent_id='topic_decision'").get()).toEqual({ n: 0 });
         repairedDelegation = true;
         return replayConversationResponse(reply({ id: 'delegate-with-scope', name: 'delegate_task', arguments: {
-          agent_ref: 'topic_decision', practice_ref: null, scope_ref: scopeRef,
+          agent_ref: 'topic_decision', experience_uses: [], practice_ref: null, scope_ref: scopeRef,
           goal: 'Start a new batch of Chinese topic selection for this site', reason: 'The user-saved daily topic selection trigger configuration is due',
           context: 'Combining the existing keyword library and in-flight work, produce a batch of topics ready for review.',
         } }), stream)(m, context, options);

@@ -20,19 +20,19 @@ The internal Learning Agent has its own persistent Task/Run on the same Runtime.
 
 1. `prepare_business_practice` captures the assignment and invokes learning preparation. The Agent defines a hypothesis and a prospective evaluation agreement from available facts. Missing goals or measurable sources remain explicit gaps.
 2. `find_business_experience` searches by business intent; `list_business_experience` browses paginated history. The Leader reads the full record and evidence using `read_business_experience` and its page tool, then chooses whether it fits.
-3. `adopt_business_experience` records the experience, observed version, reason and compatibility. A search result or read is never automatically an adoption. Multiple Agents contributing to one practice do not create independent outcome samples.
-4. `record_business_practice` records the actual delivery and material changes. Publication is bound to actual saved job/version/URL/time receipts. Completed Leader tasks are not revived by late publication or outcome collection.
-5. Scheduled observation work collects available outcomes and invokes evaluation. Subsequent tasks can recall the updated understanding. Unavailable data, incomplete coverage and delayed results stay distinguishable from zero performance.
+3. For delegated work, `delegate_task.experience_uses` records the selected full-read references, observed versions, reasons and applicability with the assignment before dispatch. Pass an empty list when no lesson applies. `adopt_business_experience` remains available for decisions outside delegation. A search result or read is never automatically an adoption. Multiple assignments in one practice do not create independent outcome samples.
+4. `record_business_practice` records actual delivery, material changes and exact supporting receipts. Topic submission atomically saves the real group/item identities and immutable delivered version/content. Publication is bound to actual saved job/version/URL/time receipts. Completed Leader tasks are not revived by late publication or outcome collection.
+5. The Leader reads the frozen agreement with `read_business_evaluation`, arranges authorized evidence collection, and uses `submit_business_outcome` to submit formal evidence for assessment. It does not supply a reward or utility score. Scheduled observation continues to own automatic GSC outcomes. The Learning Agent checks evidence support and the frozen reviewer/source requirements; missing evidence stays unknown. Subsequent tasks can recall the updated understanding.
 
 Business judgment remains model-directed: relevance, hypothesis, applicability, evaluation meaning, conclusions, adoption, no suitable experience and unknown results. The shared Runtime owns execution authority, stable identities, persisted context, replay and recovery. The learning domain owns practice lifecycle and scoring contracts. Deterministic checks enforce tenant isolation, observed versions, atomic writes, idempotency, arithmetic and real-source constraints; they do not rank business strategies.
 
 Learning preparation has a persisted limit of three attempts, including the first. Unknown submissions are reconciled before retry. Exhausting preparation availability lets business work continue with an explicit gap; later tasks still attempt learning. Feedback failures retain pending work. This policy does not change other Agents' recovery strategy.
 
-Existing tasks retain pinned tool contracts. New Leader tasks use definition 21 and Learning Agent definition 2. Upgrading does not invent pre-action judgments for historical tasks.
+Existing tasks retain pinned tool contracts. New tasks use Leader definition 25, Learning Agent definition 6 and Topic definition 30. Upgrading does not invent pre-action judgments for historical tasks.
 
 ## Evaluation and Utility
 
-The Agent fixes the evaluation agreement before action, including objective, evidence basis, named inputs and units, constants, arithmetic steps or an evidence rubric, score meaning, missing-data conditions and a comparison key. Numeric execution is restricted arithmetic, not arbitrary code. Unsupported metrics cannot be inferred from available proxies: GSC clicks are not conversions.
+The Agent fixes the evaluation agreement before action, including objective, evidence basis, named inputs and units, constants, arithmetic steps or an evidence rubric, score meaning, missing-data conditions, a comparison key, and an executable evidence plan (source, collector and readiness condition). Numeric execution is restricted arithmetic, not arbitrary code. Unsupported metrics cannot be inferred from available proxies: GSC clicks are not conversions.
 
 **Reward** measures the current practice against that agreement. **Utility** estimates the value of an explicitly adopted historical experience in later compatible practices. A failed practice can produce a useful lesson; its later value is not its original reward.
 
@@ -59,6 +59,9 @@ For an existing installation, back up D1 and apply migrations before deploying t
 - `0082_business_learning.sql`: practice records, evidence, adoptions, feedback and pending learning/observation work.
 - `0083_leader_learning.sql`: Leader attribution and supporting links.
 - `0084_learning_search.sql`: search projections, indexed outbox and revision triggers; existing learning records are queued for indexing.
+- `0085_task_subjects.sql` and `0086_learning_attribution.sql`: nested-task object references and attributable learning evidence.
+
+The delegated-adoption and formal-outcome update requires no additional migration, secret or binding beyond these existing learning prerequisites.
 
 These migrations add learning structures; they do not rewrite Agent conversations. Follow [self-hosting upgrade steps](self-hosting.md#upgrading-a-release) and retain your resource names. No new Workflow or Durable Object declaration is required.
 
@@ -113,7 +116,7 @@ This creates an isolated test index, seeds explicitly synthetic records, checks 
 
 For a manual browser sandbox with synthetic GSC responses, run `VERIFY_REAL_RUNTIME=1 node scripts/verify-learning-local.mjs` after building. Open the printed loopback-only fixture login URL. It uses real selected models, isolated local persistence, and synthetic business documents. Start a Leader practice from the UI. Its fixture endpoints are never included in the deployed Worker. Stop it with Ctrl+C. This sandbox does not provide semantic bindings; use the semantic check above for vector acceptance.
 
-See [acceptance scope](business-learning-acceptance.md) for the tested revision and evidence boundaries. Functional correctness, semantic relevance, changed decisions and measured business improvement are distinct claims. Real growth requires actual publication, matured outcome data and a defensible comparison; a synthetic fixture or increasing Utility is insufficient.
+See [acceptance scope](business-learning-acceptance.md) and the [formal-outcome acceptance update](learning-outcome-evidence.md#production-acceptance-update) for tested behavior and evidence boundaries. [Delegated adoption](learning-delegated-adoption.md) documents replay and authority semantics. Functional correctness, semantic relevance, changed decisions and measured business improvement are distinct claims. Real growth requires actual publication, matured outcome data and a defensible comparison; a synthetic fixture or increasing Utility is insufficient.
 
 ## Object attribution
 

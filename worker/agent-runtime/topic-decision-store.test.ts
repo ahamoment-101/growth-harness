@@ -110,7 +110,58 @@ const groupOutput: TopicDecisionOutput = {
 
 const SCOPE = { locale: 'en' };
 
+function learningFixture() {
+  const fixture = fixtureDb();
+  fixture.sqlite.exec(`
+    create table agent_tasks (id text primary key, active_run_id text, workspace_id text, site_id text, parent_task_id text, assignment_id text);
+    create table learning_records (id text primary key, workspace_id text, site_id text);
+    create table learning_tasks (task_id text primary key, record_id text);
+    create table learning_evidence (id text primary key, record_id text, kind text, source_ref text, payload_json text, created_at text, attribution_json text);
+    create table learning_requests (id text primary key, record_id text, phase text, payload_json text, available_at text, created_at text, updated_at text, observation_bound integer);
+    insert into agent_tasks values ('child','run-1','workspace-1','site-1','leader','assignment');
+    insert into learning_records values ('practice','workspace-1','site-1');
+    insert into learning_tasks values ('child','practice');
+  `);
+  const input = {
+    db: fixture.db, workspaceId: 'workspace-1', siteId: 'site-1', runId: 'run-1',
+    operationId: 'submission-1', captureDelivery: true,
+    strategyVersionId: 'strategy-1', strategyVersion: 1, requestedCount: 1, locales: ['en'], scope: SCOPE,
+    output: groupOutput, webEvidence: [], searchUsed: false, decisionTurns: 2,
+  };
+  return { ...fixture, input };
+}
+
 describe('topic decision persistence and handoff', () => {
+  it('atomically captures exact submitted objects and preserves their snapshot across mutable state and replay', async () => {
+    const f = learningFixture();
+    const result = await persistTopicDecisionResult(f.input);
+    const receipt = f.sqlite.prepare('select * from learning_evidence').get() as { payload_json: string; attribution_json: string; record_id: string };
+    const item = f.sqlite.prepare('select id from topic_decision_items').get() as { id: string };
+    expect(receipt.record_id).toBe('practice');
+    expect(JSON.parse(receipt.attribution_json)).toEqual({ task_id: 'child', parent_task_id: 'leader', assignment_id: 'assignment', subjects: [
+      { type: 'topic_group', id: result.id, version: 'submission-1' },
+      { type: 'topic_item', id: item.id, version: 'submission-1' },
+    ] });
+    expect(JSON.parse(receipt.payload_json).snapshot).toMatchObject({ group_id: result.id, decision: groupOutput, items: [{ id: item.id }] });
+    f.sqlite.exec("update topic_decision_results set status='approved'; update topic_decision_items set title_direction='Changed later';");
+    expect(await persistTopicDecisionResult(f.input)).toMatchObject({ id: result.id });
+    expect(f.sqlite.prepare('select payload_json from learning_evidence').get()).toEqual({ payload_json: receipt.payload_json });
+    expect(f.sqlite.prepare('select count(*) n from learning_requests').get()).toEqual({ n: 1 });
+  });
+
+  it('rolls back formal delivery if its learning receipt cannot be committed and safely retries the original operation', async () => {
+    const f = learningFixture();
+    f.sqlite.exec("create trigger fail_learning before insert on learning_requests begin select raise(abort,'synthetic receipt failure'); end;");
+    await expect(persistTopicDecisionResult(f.input)).rejects.toThrow('synthetic receipt failure');
+    for (const table of ['topic_decision_results', 'topic_decision_items', 'learning_evidence', 'learning_requests']) {
+      expect(f.sqlite.prepare(`select count(*) n from ${table}`).get()).toEqual({ n: 0 });
+    }
+    f.sqlite.exec('drop trigger fail_learning');
+    await persistTopicDecisionResult(f.input);
+    expect(f.sqlite.prepare('select count(*) n from learning_evidence').get()).toEqual({ n: 1 });
+    expect(f.sqlite.prepare('select count(*) n from learning_requests').get()).toEqual({ n: 1 });
+  });
+
   it('does not hold a delegated topic task behind its own research request', async () => {
     const fixture = fixtureDb();
     fixture.sqlite.exec(`

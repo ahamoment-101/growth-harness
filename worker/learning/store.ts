@@ -14,6 +14,7 @@ import { readRuntimeJson } from '../agent-runtime/runtime-content';
 import { taskDataJson } from '../agent-runtime/task-store';
 import { ToolContractError } from '../agent-runtime/tool-failure';
 import { utilityFromFeedback } from './calculation';
+import type { EvidenceAttribution } from './attribution';
 
 export type RecordRow = {
   id: string;
@@ -407,22 +408,23 @@ export async function addEvidence(
   kind: string,
   sourceRef: string,
   payload: unknown,
+  attribution?: EvidenceAttribution,
 ) {
   await requireRecord(db, scope, recordId);
   const at = now(),
     json = taskDataJson(payload);
   const prior = await db
-    .prepare('select record_id,payload_json from learning_evidence where id=?')
+    .prepare('select record_id,payload_json,attribution_json from learning_evidence where id=?')
     .bind(id)
-    .first<{ record_id: string; payload_json: string }>();
-  if (prior && (prior.record_id !== recordId || prior.payload_json !== json))
+    .first<{ record_id: string; payload_json: string; attribution_json: string }>();
+  if (prior && (prior.record_id !== recordId || prior.payload_json !== json || (attribution && prior.attribution_json !== JSON.stringify(attribution))))
     throw new Error('Evidence identity conflict');
   await db.batch([
     db
       .prepare(
-        'insert or ignore into learning_evidence(id,record_id,kind,source_ref,payload_json,created_at) values(?,?,?,?,?,?)',
+        'insert or ignore into learning_evidence(id,record_id,kind,source_ref,payload_json,created_at,attribution_json) values(?,?,?,?,?,?,?)',
       )
-      .bind(id, recordId, kind, sourceRef, json, at),
+      .bind(id, recordId, kind, sourceRef, json, at, JSON.stringify(attribution || { subjects: [] })),
     db
       .prepare(
         'insert or ignore into learning_requests(id,record_id,phase,payload_json,available_at,created_at,updated_at,observation_bound) values(?,?,?,?,?,?,?,1)',

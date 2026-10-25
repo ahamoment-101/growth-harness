@@ -20,6 +20,7 @@ export type EvaluationAgreement = {
   score_meaning: string;
   unavailable_when: string[];
   comparison_key: string;
+  evidence_plan?: { source: string; collector: string; ready_when: string };
 };
 export type LearningData = {
   intent: { goal: string; context: string; expectation: string };

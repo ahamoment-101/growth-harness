@@ -1,3 +1,4 @@
+import { bindDelegatedExperienceUses, delegatedExperienceContext, delegatedExperienceUses, DELEGATED_EXPERIENCE_VERSION } from '../learning/delegation';
 import { bindLearningDelegation, contentPractice, leaderOwnsLearning } from '../learning/leader';
 import { leaderDeliveryView } from './delivery-view';
 import { registerLeaderTopicReview } from './topic-review';
@@ -245,12 +246,14 @@ ${messages.map(m=>`- User message ${m.id}: ${m.content}`).join('\n')}`;
       if (!result.meta.changes) invalid('Document changed after observation; reread it before revising');
       return { key: doc.key, version: doc.version+1 };
     } });
-  registry.register({ ...common, name: 'delegate_task', version: task.definition_version >= 20 ? 6 : leaderOwnsLearning(task) ? 5 : task.definition_version >= 15 ? 4 : task.definition_version >= 8 ? 3 : task.definition_version >= 7 ? 2 : 1, capability: 'write', replaySafety: 'idempotent', executionMode: 'durable_call', description: leaderOwnsLearning(task) ? `${LEADER_SCOPED_DELEGATE} Pass practice_ref from your preparation when this delegation belongs to a learning practice. Related work reuses that reference. Put adopted business guidance in context; specialists do not use the learning protocol.${task.definition_version >= 20 ? ' practice_ref is required: select the prepared practice or explicitly pass null for work outside a learning practice. Verify the returned learning_practice_ref before claiming association.' : ''}` : task.definition_version >= 15 ? LEADER_SCOPED_DELEGATE : task.definition_version >= 8 ? LEADER_COORDINATION_DELEGATE : task.definition_version >= 7 ? 'Delegate an authorized goal to a discovered Agent. Separate observed facts from assumptions in context. Ask the member to verify consequential unknowns, report actual actions, artifact references and limitations, and revise the approach if premises fail. Acceptance is not delivery. content_production can produce/review existing jobs in the selected production group; it cannot allocate new jobs for unlinked topic items. Topic approval is the existing job-allocation entry point. A prose instruction cannot expand a specialist tool capability.' : 'Delegate a goal to a discovered Agent. Returns dispatch acceptance; the result will return to this conversation automatically. Read existing work before creating another task.',
-    inputSchema: z.object({ agent_ref: z.string(), goal: z.string().min(1), reason: z.string().min(1), context: z.string().default(''), scope_ref: z.string().optional(), target_ref: z.string().optional(), ...(task.definition_version >= 20 ? { practice_ref: z.string().min(1).nullable() } : leaderOwnsLearning(task) ? { practice_ref: z.string().optional() } : {}) }),
+  registry.register({ ...common, name: 'delegate_task', version: task.definition_version >= DELEGATED_EXPERIENCE_VERSION ? 7 : task.definition_version >= 20 ? 6 : leaderOwnsLearning(task) ? 5 : task.definition_version >= 15 ? 4 : task.definition_version >= 8 ? 3 : task.definition_version >= 7 ? 2 : 1, capability: 'write', replaySafety: 'idempotent', executionMode: 'durable_call', description: leaderOwnsLearning(task) ? `${LEADER_SCOPED_DELEGATE}${task.definition_version >= DELEGATED_EXPERIENCE_VERSION ? ' experience_uses is required: declare only lessons actually applied, using your own full-read references, or pass []. Their guidance is included in the assignment and adoption is saved before dispatch; no separate adopt call is needed for this decision. The receipt does not prove implementation or results.' : ''} Pass practice_ref from your preparation when this delegation belongs to a learning practice. Related work reuses that reference. Put adopted business guidance in context; specialists do not use the learning protocol.${task.definition_version >= 20 ? ' practice_ref is required: select the prepared practice or explicitly pass null for work outside a learning practice. Verify the returned learning_practice_ref before claiming association.' : ''}` : task.definition_version >= 15 ? LEADER_SCOPED_DELEGATE : task.definition_version >= 8 ? LEADER_COORDINATION_DELEGATE : task.definition_version >= 7 ? 'Delegate an authorized goal to a discovered Agent. Separate observed facts from assumptions in context. Ask the member to verify consequential unknowns, report actual actions, artifact references and limitations, and revise the approach if premises fail. Acceptance is not delivery. content_production can produce/review existing jobs in the selected production group; it cannot allocate new jobs for unlinked topic items. Topic approval is the existing job-allocation entry point. A prose instruction cannot expand a specialist tool capability.' : 'Delegate a goal to a discovered Agent. Returns dispatch acceptance; the result will return to this conversation automatically. Read existing work before creating another task.',
+    inputSchema: z.object({ agent_ref: z.string(), goal: z.string().min(1), reason: z.string().min(1), context: z.string().default(''), ...(task.definition_version >= DELEGATED_EXPERIENCE_VERSION ? { experience_uses: delegatedExperienceUses } : {}), scope_ref: z.string().optional(), target_ref: z.string().optional(), ...(task.definition_version >= 20 ? { practice_ref: z.string().min(1).nullable() } : leaderOwnsLearning(task) ? { practice_ref: z.string().optional() } : {}) }),
     execute: async args => {
       const selected = discoverableAgents().find(a=>a.agent_ref===args.agent_ref);
       if (!selected) invalid('Agent is not callable by this Leader');
-      const assigned = { goal: args.goal, reason: args.reason, context: args.context };
+      const uses = task.definition_version >= DELEGATED_EXPERIENCE_VERSION ? delegatedExperienceUses.parse(args.experience_uses) : [];
+      const context = delegatedExperienceContext(args.context, uses);
+      const assigned = { goal: args.goal, reason: args.reason, context };
       let summary: Record<string,unknown>;
       let instanceId: string | undefined;
       if (selected.agent_ref === 'content_production') {
@@ -265,17 +268,20 @@ ${messages.map(m=>`- User message ${m.id}: ${m.content}`).join('\n')}`;
         }
         const { locale } = await resolveSlot<{locale:string}>(env.DB, task, args.scope_ref || '', 'leader_scope');
         if (selected.agent_ref === 'topic_decision') { summary = { scope: { locale }, locales: [locale], group_size: 10 }; instanceId = topicInstance({locale}); }
-        else if (selected.agent_ref === 'deep_research') summary = { locale, research_question: args.goal, decision_use: args.reason, context: args.context, scope: '', deliverable: '' };
-        else { summary = { locale, request: { requester: { type: 'agent', agent_id: 'growth_leader', task_id: task.id }, message: args.goal, context: { reason: args.reason, background: args.context } } }; instanceId = `strategy:${locale}`; }
+        else if (selected.agent_ref === 'deep_research') summary = { locale, research_question: args.goal, decision_use: args.reason, context, scope: '', deliverable: '' };
+        else { summary = { locale, request: { requester: { type: 'agent', agent_id: 'growth_leader', task_id: task.id }, message: args.goal, context: { reason: args.reason, background: context } } }; instanceId = `strategy:${locale}`; }
       }
       const inherited = selected.agent_ref === 'content_production' ? await contentPractice(env, task, String(summary.group_id)) : null;
       const requested = 'practice_ref' in args ? args.practice_ref as string | null | undefined : undefined;
       if (requested && inherited && requested !== inherited) invalid('This production group already belongs to another practice');
-      const learning = await bindLearningDelegation(env, task, operation!, requested || inherited);
+      const learning = task.definition_version >= DELEGATED_EXPERIENCE_VERSION
+        ? await bindDelegatedExperienceUses(env, task, operation!, requested || inherited, uses, args)
+        : await bindLearningDelegation(env, task, operation!, requested || inherited);
       summary.delegation = assigned;
       const result = await dispatchChildTask({ env, step, task, operation: operation!, agentId: selected.agent_ref, summary, instanceId, assignment: assigned });
       return { task_ref: result.task.id, status: result.task.status, accepted: true, result_delivery: 'this_conversation',
         ...(task.definition_version >= 20 ? { learning_practice_ref: learning?.practice_ref || null } : {}),
+        ...(task.definition_version >= DELEGATED_EXPERIENCE_VERSION ? { registered_experience_uses: uses } : {}),
         ...(task.definition_version >= 7 ? { receipt_kind: 'delegation_accepted', meaning: 'Work accepted; no completed business outcome is established by this receipt.' } : {}) };
     } });
   if (task.definition_version >= 22) registry.register({ ...common, name: 'provide_task_facts', capability: 'write', replaySafety: 'idempotent', executionMode: 'durable_call',

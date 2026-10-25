@@ -1,3 +1,5 @@
+import { topicDeliveryStatements } from '../learning/delivery';
+import type { TaskSubject } from './task-subjects';
 import { type TopicScope } from './topic-scope';
 import { taskForRun } from './task-store';
 import { taskExecutionView } from './task-recovery';
@@ -85,6 +87,7 @@ export async function persistTopicDecisionResult(input: {
   decisionTurns: number;
   languageDecisions?: unknown[];
   operationId?: string;
+  captureDelivery?: boolean;
   strategyByLocale?: Record<string, { id: string | null; version: number }>;
 }): Promise<{ id: string; decision: string; status: string; item_count: number }> {
   const replay = await input.db.prepare('select * from topic_decision_results where submission_operation_id = ?')
@@ -128,7 +131,12 @@ export async function persistTopicDecisionResult(input: {
       input.runId, input.workspaceId, input.siteId, input.runId,
     ),
   ];
+  const subjects: TaskSubject[] = [{ type: 'topic_group', id: resultId, version: input.operationId || null }];
+  const deliveredItems: Array<{ id: string; content: unknown }> = [];
   for (const [index, item] of (group?.items || []).entries()) {
+    const itemId = newId();
+    subjects.push({ type: 'topic_item', id: itemId, version: input.operationId || null });
+    deliveredItems.push({ id: itemId, content: item });
     const itemStrategy = input.strategyByLocale?.[item.locale] || {
       id: input.strategyVersionId,
       version: input.strategyVersion,
@@ -142,13 +150,17 @@ export async function persistTopicDecisionResult(input: {
       ) select ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${item.library_keyword_id ? ', ?' : ''}
         where exists (select 1 from topic_decision_results where id = ? and run_id = ?)`,
     ).bind(
-      newId(), resultId, item.strategy_keyword_id, item.keyword_id, item.topic_key, item.title_direction,
+      itemId, resultId, item.strategy_keyword_id, item.keyword_id, item.topic_key, item.title_direction,
       item.primary_keyword, item.content_type, item.locale, item.search_intent, item.group_role,
       item.rationale, item.hypothesis, runtimeJson(item.evidence), item.relationship_to_existing, item.risk, index, at,
       itemStrategy.id, itemStrategy.version, ...(item.library_keyword_id ? [item.library_keyword_id] : []),
       resultId, input.runId,
     ));
   }
+  if (input.captureDelivery && input.operationId && group) statements.push(...topicDeliveryStatements(input.db, {
+    workspaceId: input.workspaceId, siteId: input.siteId, runId: input.runId, operationId: input.operationId, groupId: resultId, subjects,
+    snapshot: { group_id: resultId, decision: input.output, items: deliveredItems },
+  }));
   await input.db.batch(statements);
   if (!await input.db.prepare('select id from topic_decision_results where id=?').bind(resultId).first()) {
     if (await input.db.prepare('select id from topic_decision_results where run_id=?').bind(input.runId).first()) throw new Error('This Run already submitted its topic decision');

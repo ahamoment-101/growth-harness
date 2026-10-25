@@ -111,7 +111,7 @@ it('builds one topic draft through small edits and submits it once as a locked b
   const submitted = await call('submit_topic_group', {});
   expect(submitted.output).toMatchObject({ accepted: true, outcome: 'submitted', id: 'aggregate' });
   const persisted = vi.mocked(persistTopicDecisionResult).mock.calls.at(-1)![0];
-  expect(persisted).toMatchObject({ scope: { locale: 'en' }, locales: ['en'], strategyVersionId: 'strategy-en', strategyVersion: 1 });
+  expect(persisted).toMatchObject({ captureDelivery: true, scope: { locale: 'en' }, locales: ['en'], strategyVersionId: 'strategy-en', strategyVersion: 1 });
   expect(persisted.output.group?.items.map(item => item.topic_key)).toEqual(['first-contact', 'reply-tone']);
   expect(persisted.output.group?.goal).toBe('[en] Email guides');
 
